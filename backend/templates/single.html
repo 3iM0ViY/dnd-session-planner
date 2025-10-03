@@ -65,6 +65,23 @@
 						{% csrf_token %}
 						<button type="submit" class="btn btn-danger mt-2">Delete Event</button>
 					</form>
+
+					{% if data.event.requests.exists %}
+						<h4 class="mt-4">Pending Requests:</h4>
+						<ul class="list-group">
+							{% for req in data.pending_requests %}
+								<li class="list-group-item d-flex justify-content-between align-items-center">
+									{{ req.user.username }}
+									<span>
+										<a href="{% url 'manage_request' req.id 'approve' %}" class="btn btn-success btn-sm">Approve</a>
+										<a href="{% url 'manage_request' req.id 'reject' %}" class="btn btn-danger btn-sm">Reject</a>
+									</span>
+								</li>
+							{% empty %}
+								<li class="list-group-item text-muted">No pending requests.</li>
+							{% endfor %}
+						</ul>
+					{% endif %}
 				{% else %}
 					<form method="post" action="{% url 'join_event' data.event.id %}">
 						{% csrf_token %}

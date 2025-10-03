@@ -36,6 +36,8 @@ def single(request, event_id):
 		if req:
 			request_status = req.status
 
+	pending_requests = event.requests.filter(status="pending") if event else []
+
 	if event and event.date_start:
 		time_remaining = event.date_start - timezone.now()
 		days = time_remaining.days
@@ -60,6 +62,7 @@ def single(request, event_id):
 			'seconds': 0,
 			'players': [],
 			'request_status': request_status,
+			'pending_requests': pending_requests,
 		}
 	return render(request, 'single.html', {'data': data})
 
@@ -144,3 +147,31 @@ def delete_event(request, event_id):
 		event.delete()
 		messages.success(request, "Event deleted successfully!")
 		return redirect("home")
+
+@login_required
+def manage_request(request, request_id, action):
+	event_request = get_object_or_404(EventRequest, pk=request_id)
+	event = event_request.event
+
+	# Only the organizer can approve/reject
+	if request.user != event.organizer:
+		messages.error(request, "You are not allowed to manage this request.")
+		return redirect("single", event_id=event.id)
+
+	if action not in ["approve", "reject"]:
+		messages.error(request, "Invalid action.")
+		return redirect("single", event_id=event.id)
+
+	if action == "approve":
+		if not event.has_space():
+			messages.error(request, "Cannot approve: event is full.")
+		else:
+			event_request.status = "approved"
+			event_request.save()
+			messages.success(request, f"{event_request.user.username} has been approved!")
+	else:  # reject
+		event_request.status = "rejected"
+		event_request.save()
+		messages.info(request, f"{event_request.user.username} has been rejected.")
+
+	return redirect("single", event_id=event.id)
