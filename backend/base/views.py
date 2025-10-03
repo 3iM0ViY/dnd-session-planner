@@ -13,16 +13,22 @@ def home(request):
 	data = []
 	for event in events:
 		request_status = None
+		pending_count = 0
+
 		if request.user.is_authenticated:
 			req = event.requests.filter(user=request.user).first()
 			if req:
 				request_status = req.status
+
+			if request.user == event.organizer:
+				pending_count = event.requests.filter(status="pending").count()
 
 		data.append({
 			"event": event,
 			"slots_taken": event.players.count(),
 			"slots_total": event.max_players,
 			"request_status": request_status,
+			"pending_count": pending_count,
 		})
 	return render(request, "index.html", {"events": data})
 
@@ -31,10 +37,15 @@ def single(request, event_id):
 	players = event.players.all()
 
 	request_status = None
+	pending_requests = []
+
 	if request.user.is_authenticated:
 		req = event.requests.filter(user=request.user).first()
 		if req:
 			request_status = req.status
+
+		if request.user == event.organizer:
+			pending_requests = event.requests.filter(status="pending")
 
 	if event and event.date_start:
 		time_remaining = event.date_start - timezone.now()
@@ -50,6 +61,7 @@ def single(request, event_id):
 			'seconds': seconds,
 			'players': players,
 			'request_status': request_status,
+			"pending_requests": pending_requests,
 		}
 	else:
 		data = {
@@ -60,6 +72,7 @@ def single(request, event_id):
 			'seconds': 0,
 			'players': [],
 			'request_status': request_status,
+			'pending_requests': pending_requests,
 		}
 	return render(request, 'single.html', {'data': data})
 
@@ -144,3 +157,31 @@ def delete_event(request, event_id):
 		event.delete()
 		messages.success(request, "Event deleted successfully!")
 		return redirect("home")
+
+@login_required
+def manage_request(request, event_id, request_id, action):
+	event = get_object_or_404(Event, pk=event_id)
+	join_request = get_object_or_404(EventRequest, pk=request_id, event=event)
+
+	# Only the organizer can approve/reject
+	if request.user != event.organizer:
+		messages.error(request, "You are not allowed to manage this request.")
+		return redirect("single", event_id=event.id)
+
+	if action not in ["approve", "reject"]:
+		messages.error(request, "Invalid action.")
+		return redirect("single", event_id=event.id)
+
+	if action == "approve":
+		if not event.has_space():
+			messages.error(request, "Cannot approve: event is full.")
+		else:
+			join_request.status = "approved"
+			join_request.save()
+			messages.success(request, f"{join_request.user.username} has been approved!")
+	else:  # reject
+		join_request.status = "rejected"
+		join_request.save()
+		messages.info(request, f"{join_request.user.username} has been rejected.")
+
+	return redirect("single", event_id=event.id)

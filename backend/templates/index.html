@@ -18,7 +18,14 @@
 					<p><strong>Setting:</strong> {{ item.event.game_setting }}</p>
 					<p><strong>Description:</strong> {{ item.event.description|truncatewords:50 }}</p>
 					<p><strong>Date and time:</strong> {{ item.event.date_start }}</p>
-					<p><strong>Organizer:</strong> {{ item.event.organizer.username }}</p>
+					<p> <!-- This is to highlight the user's sessions -->
+						<strong>Organizer:</strong>
+						{% if user.is_authenticated and item.event.organizer == user %}
+							<span class="text-primary fw-bold">{{ item.event.organizer.username }} (You)</span>
+						{% else %}
+							{{ item.event.organizer.username }}
+						{% endif %}
+					</p>
 					<p><strong>Players:</strong> {{ item.slots_taken }}/{{ item.slots_total }}</p>
 					
 					{% if item.request_status %}
@@ -33,7 +40,14 @@
 						</p>
 					{% endif %}
 					
-					<a href="{% url 'single' item.event.id %}" class="btn btn-outline-primary">View</a>
+					<div class="d-flex justify-content-between align-items-center">
+						<a href="{% url 'single' item.event.id %}" class="btn btn-outline-primary">View</a>
+						{% if item.pending_count > 0 %}
+							<span class="badge bg-danger">
+								{{ item.pending_count }} request{{ item.pending_count|pluralize }}
+							</span>
+						{% endif %}
+					</div>
 				</div>
 			</div>
 		</div>
