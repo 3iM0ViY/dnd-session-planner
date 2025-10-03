@@ -13,16 +13,22 @@ def home(request):
 	data = []
 	for event in events:
 		request_status = None
+		pending_count = 0
+
 		if request.user.is_authenticated:
 			req = event.requests.filter(user=request.user).first()
 			if req:
 				request_status = req.status
+
+			if request.user == event.organizer:
+				pending_count = event.requests.filter(status="pending").count()
 
 		data.append({
 			"event": event,
 			"slots_taken": event.players.count(),
 			"slots_total": event.max_players,
 			"request_status": request_status,
+			"pending_count": pending_count,
 		})
 	return render(request, "index.html", {"events": data})
 
@@ -31,12 +37,15 @@ def single(request, event_id):
 	players = event.players.all()
 
 	request_status = None
+	pending_requests = []
+
 	if request.user.is_authenticated:
 		req = event.requests.filter(user=request.user).first()
 		if req:
 			request_status = req.status
 
-	pending_requests = event.requests.filter(status="pending") if event else []
+		if request.user == event.organizer:
+			pending_requests = event.requests.filter(status="pending")
 
 	if event and event.date_start:
 		time_remaining = event.date_start - timezone.now()
@@ -52,6 +61,7 @@ def single(request, event_id):
 			'seconds': seconds,
 			'players': players,
 			'request_status': request_status,
+			"pending_requests": pending_requests,
 		}
 	else:
 		data = {
@@ -149,9 +159,9 @@ def delete_event(request, event_id):
 		return redirect("home")
 
 @login_required
-def manage_request(request, request_id, action):
-	event_request = get_object_or_404(EventRequest, pk=request_id)
-	event = event_request.event
+def manage_request(request, event_id, request_id, action):
+	event = get_object_or_404(Event, pk=event_id)
+	join_request = get_object_or_404(EventRequest, pk=request_id, event=event)
 
 	# Only the organizer can approve/reject
 	if request.user != event.organizer:
@@ -166,12 +176,12 @@ def manage_request(request, request_id, action):
 		if not event.has_space():
 			messages.error(request, "Cannot approve: event is full.")
 		else:
-			event_request.status = "approved"
-			event_request.save()
-			messages.success(request, f"{event_request.user.username} has been approved!")
+			join_request.status = "approved"
+			join_request.save()
+			messages.success(request, f"{join_request.user.username} has been approved!")
 	else:  # reject
-		event_request.status = "rejected"
-		event_request.save()
-		messages.info(request, f"{event_request.user.username} has been rejected.")
+		join_request.status = "rejected"
+		join_request.save()
+		messages.info(request, f"{join_request.user.username} has been rejected.")
 
 	return redirect("single", event_id=event.id)
