@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block title %}Create Event{% endblock %}
+{% block content %}
+<div class="row justify-content-center">
+	<div class="col-md-8">
+		<h2 class="mb-4">Create New Event</h2>
+		<form method="post">
+			{% csrf_token %}
+			{% for field in form %}
+				<div class="mb-3">
+					<label class="form-label">{{ field.label }}</label>
+					{{ field }}
+					{% for error in field.errors %}
+						<div class="text-danger">{{ error }}</div>
+					{% endfor %}
+				</div>
+			{% endfor %}
+			<button class="btn btn-success">Create Event</button>
+		</form>
+	</div>
+</div>
+{% endblock %}

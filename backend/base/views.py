@@ -3,7 +3,7 @@ from django.contrib.auth import login
 from django.contrib import messages
 from django.utils import timezone
 from .models import Event, EventRequest
-from .forms import SignUpForm
+from .forms import SignUpForm, EventForm
 from django.contrib.auth.decorators import login_required
 
 # Create your views here.
@@ -98,3 +98,49 @@ def join_event(request, event_id):
 	EventRequest.objects.create(event=event, user=request.user)
 	messages.success(request, "Your request has been sent to the organizer.")
 	return redirect("single", event_id=event_id)
+
+@login_required
+def create_event(request):
+	if request.method == "POST":
+		form = EventForm(request.POST)
+		if form.is_valid():
+			event = form.save(commit=False)
+			event.organizer = request.user  # link to logged-in user
+			event.save()
+			messages.success(request, "Event created successfully!")
+			return redirect("single", event_id=event.id)
+	else:
+		form = EventForm()
+	return render(request, "create_event.html", {"form": form})
+
+@login_required
+def edit_event(request, event_id):
+	event = get_object_or_404(Event, pk=event_id)
+
+	if request.user != event.organizer:
+		messages.error(request, "You are not allowed to edit this event.")
+		return redirect("single", event_id=event_id)
+
+	if request.method == "POST":
+		form = EventForm(request.POST, instance=event)
+		if form.is_valid():
+			form.save()
+			messages.success(request, "Event updated successfully!")
+			return redirect("single", event_id=event.id)
+	else:
+		form = EventForm(instance=event)
+
+	return render(request, "create_event.html", {"form": form, "edit_mode": True})
+
+@login_required
+def delete_event(request, event_id):
+	event = get_object_or_404(Event, pk=event_id)
+
+	if request.user != event.organizer:
+		messages.error(request, "You are not allowed to delete this event.")
+		return redirect("single", event_id=event_id)
+
+	if request.method == "POST":
+		event.delete()
+		messages.success(request, "Event deleted successfully!")
+		return redirect("home")
