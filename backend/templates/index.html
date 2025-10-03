@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block title %}All Sessions{% endblock %}
+{% block content %}
+
+  <h1 class="mb-3">DnD Sessions</h1>
+  <ul class="list-group">
+    {% for event in events %}
+      <li class="list-group-item">
+        <a href="{{event.id}}"><strong>{{ event.title }}</strong></a> 
+        <small>{{ event.date_start|date:"d M Y H:i" }}</small><br>
+        {{ event.description }}
+      </li>
+    {% empty %}
+      <li class="list-group-item">No sessions yet.</li>
+    {% endfor %}
+  </ul>
+  
+{% endblock %}

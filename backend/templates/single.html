@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% block title %}{{ data.event.title }}{% endblock %}
+{% block content %}
+	<div class="card p-4 mx-auto" style="max-width: 600px;">
+		<div class="card-body text-center">
+			<h1 class="event-title">{{ data.event.title }}</h1>
+			{% if data.event.game_setting %}
+				<p class="event-subtitle">Setting: {{ data.event.game_setting }}</p>
+			{% endif %}
+
+			<p class="mt-3">{{ data.event.description }}</p>
+
+			<ul class="list-group list-group-flush text-start mt-3">
+				<li class="list-group-item"><strong>Starts:</strong> {{ data.event.date_start }}</li>
+				<li class="list-group-item"><strong>Ends:</strong> {{ data.event.date_end }}</li>
+				<li class="list-group-item"><strong>Location:</strong> 
+					{% if data.event.online %}
+						Online ({{ data.event.location }})
+					{% else %}
+						{{ data.event.location }}
+					{% endif %}
+				</li>
+			</ul>
+
+			<div class="mt-4">
+				<h3>Time Remaining:</h3>
+				<div id="countdown">
+					{{ data.days|stringformat:"02d" }} :
+					{{ data.hours|stringformat:"02d" }} :
+					{{ data.minutes|stringformat:"02d" }} :
+					{{ data.seconds|stringformat:"02d" }}
+				</div>
+				<small class="text-muted">Days : Hours : Minutes : Seconds</small>
+			</div>
+		</div>
+	</div>
+
+<script>
+	function updateTimer() {
+		const countdown = document.getElementById('countdown');
+		let [days, hours, minutes, seconds] = countdown.textContent.split(':').map(x => parseInt(x.trim()));
+
+		if (seconds > 0) {
+			seconds--;
+		} else {
+			if (minutes > 0) {
+				minutes--; seconds = 59;
+			} else if (hours > 0) {
+				hours--; minutes = 59; seconds = 59;
+			} else if (days > 0) {
+				days--; hours = 23; minutes = 59; seconds = 59;
+			}
+		}
+
+		countdown.textContent =
+			(days < 10 ? '0' : '') + days + ' : ' +
+			(hours < 10 ? '0' : '') + hours + ' : ' +
+			(minutes < 10 ? '0' : '') + minutes + ' : ' +
+			(seconds < 10 ? '0' : '') + seconds;
+	}
+
+	setInterval(updateTimer, 1000);
+</script>
+{% endblock %}
