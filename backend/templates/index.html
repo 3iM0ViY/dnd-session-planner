@@ -1,18 +1,36 @@
 {% extends "base.html" %}
 {% block title %}All Sessions{% endblock %}
 {% block content %}
+<h1 class="mb-3">Upcoming Sessions</h1>
 
-  <h1 class="mb-3">DnD Sessions</h1>
-  <ul class="list-group">
-    {% for event in events %}
-      <li class="list-group-item">
-        <a href="{{event.id}}"><strong>{{ event.title }}</strong></a> 
-        <small>{{ event.date_start|date:"d M Y H:i" }}</small><br>
-        {{ event.description }}
-      </li>
-    {% empty %}
-      <li class="list-group-item">No sessions yet.</li>
-    {% endfor %}
-  </ul>
-  
+<div class="row">
+  {% for item in events %}
+    <div class="col-md-6">
+      <div class="card mb-4">
+        <div class="card-body">
+          <h4>{{ item.event.title }}</h4>
+          <p><strong>Setting:</strong> {{ item.event.game_setting }}</p>
+          <p><strong>Description:</strong> {{ item.event.description }}</p>
+          <p><strong>Date and time:</strong> {{ item.event.date_start }}</p>
+          <p><strong>Organizer:</strong> {{ item.event.organizer.username }}</p>
+          <p><strong>Players:</strong> {{ item.slots_taken }}/{{ item.slots_total }}</p>
+          
+          {% if item.request_status %}
+            <p><strong>Your status:</strong> 
+              {% if item.request_status == "pending" %}
+                <span class="badge bg-warning">Pending</span>
+              {% elif item.request_status == "approved" %}
+                <span class="badge bg-success">Approved</span>
+              {% elif item.request_status == "rejected" %}
+                <span class="badge bg-danger">Rejected</span>
+              {% endif %}
+            </p>
+          {% endif %}
+          
+          <a href="{% url 'single' item.event.id %}" class="btn btn-outline-primary">View</a>
+        </div>
+      </div>
+    </div>
+  {% endfor %}
+</div>
 {% endblock %}

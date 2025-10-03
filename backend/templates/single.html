@@ -20,6 +20,30 @@
 						{{ data.event.location }}
 					{% endif %}
 				</li>
+				<li class="list-group-item"><strong>Organizer:</strong> {{ data.event.organizer.username }}</li>
+				<li class="list-group-item"><strong>Players:</strong> {{ data.event.players.count }} / {{ data.event.max_players }}</li>
+
+				{% if data.request_status %}
+				<li class="list-group-item"><strong>Your request status:</strong>
+					{% if data.request_status == "pending" %}
+						<span class="badge bg-warning">Pending</span>
+					{% elif data.request_status == "approved" %}
+						<span class="badge bg-success">Approved</span>
+					{% elif data.request_status == "rejected" %}
+						<span class="badge bg-danger">Rejected</span>
+					{% endif %}
+				</li>
+				{% endif %}
+
+				{% if data.players %}
+					<li class="list-group-item"><strong>Current players:</strong>
+						<ul>
+							{% for player in data.players %}
+								<li>{{ player.username }}</li>
+							{% endfor %}
+						</ul>
+					</li>
+				{% endif %}
 			</ul>
 
 			<div class="mt-4">
@@ -32,6 +56,20 @@
 				</div>
 				<small class="text-muted">Days : Hours : Minutes : Seconds</small>
 			</div>
+
+			{% if user.is_authenticated %}
+				{% if data.event.organizer == user %}
+					<p class="mt-3 text-muted">You are the organizer of this event.</p>
+				{% else %}
+					<form method="post" action="{% url 'join_event' data.event.id %}">
+						{% csrf_token %}
+						<button type="submit" class="btn btn-primary mt-3">Request to Join</button>
+					</form>
+				{% endif %}
+			{% else %}
+				<p class="mt-3"><a href="{% url 'login' %}">Login</a> to request joining this event.</p>
+			{% endif %}
+
 		</div>
 	</div>
 
