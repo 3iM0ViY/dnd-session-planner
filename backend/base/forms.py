@@ -25,7 +25,7 @@ class EventForm(forms.ModelForm):
 	class Meta:
 		model = Event
 		fields = [
-			"title", "game_setting", "description",
+			"title", "system", "game_setting", "description",
 			"date_start", "date_end", "online", "location", "max_players"
 		]
 		widgets = {

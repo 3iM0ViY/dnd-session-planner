@@ -3,11 +3,29 @@
 {% block content %}
 <h1 class="mb-3">Upcoming Sessions</h1>
 
-{% if user.is_authenticated %}
-	<div class="mb-3 text-end">
-		<a href="{% url 'create_event' %}" class="btn btn-success">+ Create Event</a>
-	</div>
-{% endif %}
+<div class="d-flex justify-content-between">
+	<form method="get" class="mb-7">
+		<div class="row">
+			<div>
+				<select name="system" class="form-select" onchange="this.form.submit()">
+					<option value="">-- All Systems --</option>
+					{% for system in systems %}
+						<option value="{{ system.name }}" {% if selected_system == system.name %}selected{% endif %}>
+							{{ system.name }}
+						</option>
+					{% endfor %}
+				</select>
+			</div>
+		</div>
+	</form>
+
+	{% if user.is_authenticated %}
+		<div class="mb-3 text-end">
+			<a href="{% url 'create_event' %}" class="btn btn-success">+ Create Event</a>
+		</div>
+	{% endif %}
+</div>
+
 
 <div class="row">
 	{% for item in events %}
@@ -15,6 +33,13 @@
 			<div class="card mb-4" style="height: 95%;">
 				<div class="card-body">
 					<h4>{{ item.event.title }}</h4>
+					<p><strong>System:</strong> 
+						{% if item.event.system %}
+							{{ item.event.system.name }}
+						{% else %}
+							<span class="text-muted">Not specified</span>
+						{% endif %}
+					</p>
 					<p><strong>Setting:</strong> {{ item.event.game_setting }}</p>
 					<p><strong>Description:</strong> {{ item.event.description|truncatewords:50 }}</p>
 					<p><strong>Date and time:</strong> {{ item.event.date_start }}</p>

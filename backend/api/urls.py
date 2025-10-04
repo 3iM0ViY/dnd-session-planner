@@ -19,4 +19,8 @@ urlpatterns = [
     path("events/<int:event_id>/join/", views.join_event_api, name="api_join_event"),
     path("events/<int:event_id>/requests/", views.list_requests_api, name="api_list_requests"),
     path("requests/<int:request_id>/", views.update_request_api, name="api_update_request"),
+
+    # Systems
+    path("systems/", views.system_list_create, name="system_list_create"),
+    path("systems/<int:system_id>/", views.system_detail, name="system_detail"),
 ]
