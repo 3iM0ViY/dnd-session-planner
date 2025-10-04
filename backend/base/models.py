@@ -1,6 +1,7 @@
 from django.db import models
 from django.contrib.auth.models import User
 from django.utils import timezone
+from django.core.validators import MaxValueValidator
 
 # Create your models here.
 
@@ -19,7 +20,7 @@ class Event(models.Model):
 	date_end = models.DateTimeField(blank=True, null=True)
 	online = models.BooleanField(default=True)
 	location = models.CharField(max_length=200, default="cafe/Discord server", blank=True, null=True)
-	max_players = models.PositiveSmallIntegerField(default=3, blank=True, null=True,)
+	max_players = models.PositiveSmallIntegerField(default=3, validators=[MaxValueValidator(100),], blank=True, null=True,)
 	created = models.DateTimeField(auto_now_add=True, blank=True)
 	updated_at = models.DateTimeField(auto_now=True)
 

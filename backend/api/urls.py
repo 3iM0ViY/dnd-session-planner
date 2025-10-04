@@ -4,6 +4,7 @@ from rest_framework_simplejwt.views import (
     TokenObtainPairView,
     TokenRefreshView,
 )
+from drf_spectacular.views import SpectacularAPIView, SpectacularRedocView, SpectacularSwaggerView
 
 urlpatterns = [
 	path("", views.getData),
@@ -23,4 +24,7 @@ urlpatterns = [
     # Systems
     path("systems/", views.system_list_create, name="system_list_create"),
     path("systems/<int:system_id>/", views.system_detail, name="system_detail"),
+
+    path('schema/', SpectacularAPIView.as_view(), name='schema'),
+    path('docs/swagger/', SpectacularSwaggerView.as_view(url_name='schema'), name='swagger-ui'),
 ]

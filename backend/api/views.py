@@ -7,10 +7,25 @@ from rest_framework.permissions import IsAuthenticated
 from django.contrib.auth.models import User
 from rest_framework import status
 from django.shortcuts import get_object_or_404
+from drf_spectacular.utils import extend_schema, OpenApiParameter, OpenApiResponse, OpenApiExample
 
+@extend_schema(
+	tags=["Events"],
+	parameters=[
+		OpenApiParameter(
+			name='system',
+			description='Filter events by the system name',
+			required=False,
+			type=str
+		)
+	],
+	responses=EventSerializer(many=True),
+	summary="Get Events"
+)
 @api_view(["GET"])
 # @permission_classes([IsAuthenticated])
 def getData(request):
+	"""Receive all Events, ordered by how soon their date_start is"""
 	events = Event.objects.all()
 
 	# Filtering by system name
@@ -21,6 +36,71 @@ def getData(request):
 	serializer = EventSerializer(events, many=True)
 	return Response(serializer.data)
 
+@extend_schema(
+    tags=["Events"],
+    operation_id="createEvent",
+    summary="Create an event",
+    description=(
+        "Create a new event. The organizer is automatically set from the authenticated user "
+        "(request.user) and is read-only. The `players` list is read-only and will be empty "
+        "on creation. For `system`, provide the system name (slug_field='name'). "
+        "Dates must be ISO 8601 strings. If `online` is true, `location` can describe the "
+        "virtual venue (e.g., a Discord server)."
+    ),
+    request=EventSerializer,
+    responses={
+        201: OpenApiResponse(
+            response=EventSerializer,
+            description="Event successfully created."
+        ),
+        400: OpenApiResponse(
+            description="Validation error. The response contains field-specific error details."
+        ),
+    },
+    examples=[
+        OpenApiExample(
+            name="Create Avatar Legends event (request)",
+            value={
+                "title": "Rocky Road from Ba-Sing-Se",
+                "system": "Avatar Legends: The Roleplaying Game",
+                "game_setting": "The Earth kingdoms",
+                "description": (
+                    "A group of benders gets into a diplomatic affair accompanying an "
+                    "ambassador from the Fire Nation."
+                ),
+                "date_start": "2025-10-06T19:30:00Z",
+                "date_end": "2025-10-06T21:30:00Z",
+                "online": True,
+                "location": "Deathbringer discord server",
+                "max_players": 6
+            },
+            request_only=True,
+        ),
+        OpenApiExample(
+            name="Event created (201 response)",
+            value={
+                "id": 17,
+                "organizer": "yul",
+                "players": [],
+                "system": "Avatar Legends: The Roleplaying Game",
+                "title": "Rocky Road from Ba-Sing-Se",
+                "game_setting": "The Earth kingdoms",
+                "description": (
+                    "A group of benders gets into a diplomatic affair accompanying an "
+                    "ambassador from the Fire Nation."
+                ),
+                "date_start": "2025-10-06T22:30:00+03:00",
+                "date_end": "2025-10-07T00:30:00+03:00",
+                "online": True,
+                "location": "Deathbringer discord server",
+                "max_players": 6,
+                "created": "2025-10-04T17:18:26.562903+03:00",
+                "updated_at": "2025-10-04T17:18:26.562903+03:00"
+            },
+            response_only=True,
+        ),
+    ],
+)
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
 def addEvent(request):
@@ -30,6 +110,93 @@ def addEvent(request):
 		return Response(serializer.data, status=status.HTTP_201_CREATED)
 	return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+@extend_schema(
+	tags=["Events"],
+    description='Retrieve a single event by ID.',
+    methods=["GET"],
+    responses={
+        200: EventSerializer,
+        401: OpenApiResponse(
+            description="Authentication credentials were not provided or given token not valid for any token type",
+            examples=[{"detail": "token_not_valid"}]
+        ),
+        403: OpenApiResponse(
+            description="Not authorized.",
+            examples=[{"detail": "Not authorized."}]
+        ),
+        404: OpenApiResponse(
+            description="Event not found.",
+            examples=[{"detail": "Not found."}]
+        )
+    },
+    summary="Get event by id"
+)
+@extend_schema(
+	tags=["Events"],
+    description='Replace an existing event. Only organizer can update.',
+    methods=["PUT"],
+    responses={
+        200: EventSerializer,
+        401: OpenApiResponse(
+            description="Authentication credentials were not provided or given token not valid for any token type",
+            examples=[{"detail": "token_not_valid"}]
+        ),
+        403: OpenApiResponse(
+            description="Not authorized.",
+            examples=[{"detail": "Not authorized."}]
+        ),
+        404: OpenApiResponse(
+            description="Event not found.",
+            examples=[{"detail": "Not found."}]
+        )
+    },
+    summary="Replace an event info"
+)
+@extend_schema(
+	tags=["Events"],
+    description='Partially update an event. Only organizer can update.',
+    methods=["PATCH"],
+    responses={
+        200: EventSerializer,
+        401: OpenApiResponse(
+            description="Authentication credentials were not provided or given token not valid for any token type",
+            examples=[{"detail": "token_not_valid"}]
+        ),
+        403: OpenApiResponse(
+            description="Not authorized.",
+            examples=[{"detail": "Not authorized."}]
+        ),
+        404: OpenApiResponse(
+            description="Event not found.",
+            examples=[{"detail": "Not found."}]
+        )
+    },
+    summary="Edit an event"
+)
+@extend_schema(
+	tags=["Events"],
+    description='Delete an event. Only organizer can delete.',
+    methods=["DELETE"],
+    responses={
+        204: OpenApiResponse(
+            description="Deleted successfully.",
+            examples=[{"detail": "Deleted successfully."}]
+        ),
+        401: OpenApiResponse(
+            description="Authentication credentials were not provided or given token not valid for any token type",
+            examples=[{"detail": "token_not_valid"}]
+        ),
+        403: OpenApiResponse(
+            description="Not authorized.",
+            examples=[{"detail": "Not authorized."}]
+        ),
+        404: OpenApiResponse(
+            description="Event not found.",
+            examples=[{"detail": "Not found."}]
+        )
+    },
+    summary="Delete an event"
+)
 @api_view(["GET", "PUT", "PATCH", "DELETE"])
 @permission_classes([IsAuthenticated])
 def editEvent(request, event_id):
