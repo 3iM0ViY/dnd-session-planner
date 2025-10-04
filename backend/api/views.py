@@ -1,27 +1,32 @@
 from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.decorators import api_view, permission_classes
-from base.models import Event, EventRequest
-from .serializers import EventSerializer, EventRequestSerializer
+from base.models import Event, EventRequest, System
+from .serializers import EventSerializer, EventRequestSerializer, SystemSerializer
 from rest_framework.permissions import IsAuthenticated
 from django.contrib.auth.models import User
 from rest_framework import status
 from django.shortcuts import get_object_or_404
 
 @api_view(["GET"])
+# @permission_classes([IsAuthenticated])
 def getData(request):
 	events = Event.objects.all()
+
+	# Filtering by system name
+	system_name = request.GET.get("system")
+	if system_name:
+		events = events.filter(system__name__iexact=system_name)
+
 	serializer = EventSerializer(events, many=True)
 	return Response(serializer.data)
 
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
 def addEvent(request):
-	data = request.data.copy()
-	data["organizer"] = request.user.id
-	serializer = EventSerializer(data=data)
+	serializer = EventSerializer(data=request.data)
 	if serializer.is_valid():
-		serializer.save()
+		serializer.save(organizer=request.user) #fix: organizer is added here
 		return Response(serializer.data, status=status.HTTP_201_CREATED)
 	return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -57,7 +62,7 @@ def editEvent(request, event_id):
 
 	elif request.method == 'DELETE':
 		event.delete()
-		return Response(status=status.HTTP_204_NO_CONTENT)
+		return Response({"detail": "Deleted successfully."}, status=status.HTTP_204_NO_CONTENT)
 
 @api_view(["POST"])
 def signup(request):
@@ -126,3 +131,43 @@ def update_request_api(request, request_id):
 	join_request.save()
 
 	return Response(EventRequestSerializer(join_request).data)
+
+@api_view(["GET", "POST"])
+# @permission_classes([IsAuthenticated])
+def system_list_create(request):
+	"""List all systems or create a new one."""
+	if request.method == "GET":
+		systems = System.objects.all()
+		serializer = SystemSerializer(systems, many=True)
+		return Response(serializer.data)
+
+	elif request.method == "POST":
+		serializer = SystemSerializer(data=request.data)
+		if serializer.is_valid():
+			serializer.save()
+			return Response(serializer.data, status=status.HTTP_201_CREATED)
+		return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+@api_view(["GET", "PUT", "PATCH", "DELETE"])
+@permission_classes([IsAuthenticated])
+def system_detail(request, system_id):
+	"""Retrieve, update, or delete a single system."""
+	try:
+		system = System.objects.get(pk=system_id)
+	except System.DoesNotExist:
+		return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+
+	if request.method == "GET":
+		serializer = SystemSerializer(system)
+		return Response(serializer.data)
+
+	elif request.method in ["PUT", "PATCH"]:
+		serializer = SystemSerializer(system, data=request.data, partial=(request.method == "PATCH"))
+		if serializer.is_valid():
+			serializer.save()
+			return Response(serializer.data)
+		return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+	elif request.method == "DELETE":
+		system.delete()
+		return Response(status=status.HTTP_204_NO_CONTENT)

@@ -1,10 +1,13 @@
 from rest_framework import serializers
-from base.models import Event, EventRequest
+from base.models import Event, EventRequest, System
 
 class EventSerializer(serializers.ModelSerializer):
     organizer = serializers.ReadOnlyField(source="organizer.username")
     players = serializers.StringRelatedField(many=True, read_only=True)
-    system = serializers.ReadOnlyField(source="system.name")
+    system = serializers.SlugRelatedField(
+        slug_field="name",
+        queryset=System.objects.all()
+    )
 
     class Meta:
         model = Event
@@ -18,3 +21,8 @@ class EventRequestSerializer(serializers.ModelSerializer):
     class Meta:
         model = EventRequest
         fields = ["id", "event", "user", "status", "created_at"]
+
+class SystemSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = System
+        fields = ["id", "name"]
