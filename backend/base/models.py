@@ -4,8 +4,15 @@ from django.utils import timezone
 
 # Create your models here.
 
+class System(models.Model):
+    name = models.CharField(max_length=100, unique=True)
+
+    def __str__(self):
+        return self.name
+
 class Event(models.Model):
 	title = models.CharField(max_length=200, blank=True)
+	system = models.ForeignKey(System, on_delete=models.SET_NULL, null=True, blank=True, related_name="events") #filtering by ttrpg systems; ex: DnD5e, daggerheart... 
 	game_setting = models.CharField(max_length=200, blank=True, null=True)
 	description = models.TextField(blank=True, null=True)
 	date_start = models.DateTimeField(blank=True, null=True)
