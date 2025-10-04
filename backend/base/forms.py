@@ -31,9 +31,11 @@ class EventForm(forms.ModelForm):
 		widgets = {
 			"date_start": forms.DateTimeInput(attrs={"type": "datetime-local", "class": "form-control"}),
 			"date_end": forms.DateTimeInput(attrs={"type": "datetime-local", "class": "form-control"}),
+			"online": forms.CheckboxInput(attrs={"class": "form-check-input"}),
 		}
 
 	def __init__(self, *args, **kwargs):
 		super().__init__(*args, **kwargs)
 		for field in self.fields.values():
-			field.widget.attrs["class"] = "form-control"
+			if type(field.widget) != forms.CheckboxInput:
+				field.widget.attrs["class"] = "form-control"
