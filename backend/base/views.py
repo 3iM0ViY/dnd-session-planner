@@ -11,9 +11,9 @@ from django.contrib.auth.decorators import login_required
 def home(request):
 	events = Event.objects.all().select_related("organizer").prefetch_related("requests", "players").order_by("-date_start")
 	
-	system_id = request.GET.get("system")
-	if system_id:
-		events = events.filter(system_id=system_id)
+	system_name = request.GET.get("system")
+	if system_name:
+		events = events.filter(system__name__iexact=system_name)
 
 	data = []
 	for event in events:
@@ -37,7 +37,7 @@ def home(request):
 		})
 
 	systems = System.objects.all()
-	return render(request, "index.html", {"events": data, "systems": systems, "selected_system": system_id})
+	return render(request, "index.html", {"events": data, "systems": systems, "selected_system": system_name})
 
 def single(request, event_id):
 	event = Event.objects.get(pk=event_id)
