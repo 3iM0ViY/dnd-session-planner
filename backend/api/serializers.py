@@ -4,6 +4,7 @@ from base.models import Event, EventRequest
 class EventSerializer(serializers.ModelSerializer):
     organizer = serializers.ReadOnlyField(source="organizer.username")
     players = serializers.StringRelatedField(many=True, read_only=True)
+    system = serializers.ReadOnlyField(source="system.name")
 
     class Meta:
         model = Event

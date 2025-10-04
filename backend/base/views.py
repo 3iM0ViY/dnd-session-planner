@@ -2,7 +2,7 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth import login
 from django.contrib import messages
 from django.utils import timezone
-from .models import Event, EventRequest
+from .models import Event, EventRequest, System
 from .forms import SignUpForm, EventForm
 from django.contrib.auth.decorators import login_required
 
@@ -10,6 +10,11 @@ from django.contrib.auth.decorators import login_required
 
 def home(request):
 	events = Event.objects.all().select_related("organizer").prefetch_related("requests", "players").order_by("-date_start")
+	
+	system_id = request.GET.get("system")
+	if system_id:
+		events = events.filter(system_id=system_id)
+
 	data = []
 	for event in events:
 		request_status = None
@@ -30,7 +35,9 @@ def home(request):
 			"request_status": request_status,
 			"pending_count": pending_count,
 		})
-	return render(request, "index.html", {"events": data})
+
+	systems = System.objects.all()
+	return render(request, "index.html", {"events": data, "systems": systems, "selected_system": system_id})
 
 def single(request, event_id):
 	event = Event.objects.get(pk=event_id)
