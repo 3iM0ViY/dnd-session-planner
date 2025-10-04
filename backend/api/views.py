@@ -7,20 +7,43 @@ from rest_framework.permissions import IsAuthenticated
 from django.contrib.auth.models import User
 from rest_framework import status
 from django.shortcuts import get_object_or_404
-from drf_spectacular.utils import extend_schema, OpenApiParameter, OpenApiResponse, OpenApiExample
+from drf_spectacular.utils import extend_schema, extend_schema_view, OpenApiParameter, OpenApiResponse, OpenApiExample
+
+param_event_id = OpenApiParameter(
+	name="event_id",
+	type=int,
+	location=OpenApiParameter.PATH,
+	description="The unique ID of the event."
+)
 
 @extend_schema(
 	tags=["Events"],
+	operation_id="listEvents",
+	summary="Get Events",
+	description=(
+		"Retrieve a list of all events, ordered by how soon their `date_start` is. "
+		"Optionally, filter events by TTRPG system using the `system` query parameter. "
+		"If no filter is applied, all events are returned."
+	),
 	parameters=[
 		OpenApiParameter(
 			name='system',
-			description='Filter events by the system name',
+			description='Filter events by the system name (case-insensitive). Will return an empty list if there is match with any of the `system.name`s.',
 			required=False,
-			type=str
+			type=str,
+			examples=[
+				OpenApiExample(
+					name="Example parameter",
+					value="/?system=Cyberpunk RED",
+					response_only=True
+				)
+			]
 		)
 	],
-	responses=EventSerializer(many=True),
-	summary="Get Events"
+	responses=OpenApiResponse(
+		response=EventSerializer(many=True),
+		description="List of events matching the filter (or all events if no filter)."
+	),
 )
 @api_view(["GET"])
 # @permission_classes([IsAuthenticated])
@@ -37,69 +60,69 @@ def getData(request):
 	return Response(serializer.data)
 
 @extend_schema(
-    tags=["Events"],
-    operation_id="createEvent",
-    summary="Create an event",
-    description=(
-        "Create a new event. The organizer is automatically set from the authenticated user "
-        "(request.user) and is read-only. The `players` list is read-only and will be empty "
-        "on creation. For `system`, provide the system name (slug_field='name'). "
-        "Dates must be ISO 8601 strings. If `online` is true, `location` can describe the "
-        "virtual venue (e.g., a Discord server)."
-    ),
-    request=EventSerializer,
-    responses={
-        201: OpenApiResponse(
-            response=EventSerializer,
-            description="Event successfully created."
-        ),
-        400: OpenApiResponse(
-            description="Validation error. The response contains field-specific error details."
-        ),
-    },
-    examples=[
-        OpenApiExample(
-            name="Create Avatar Legends event (request)",
-            value={
-                "title": "Rocky Road from Ba-Sing-Se",
-                "system": "Avatar Legends: The Roleplaying Game",
-                "game_setting": "The Earth kingdoms",
-                "description": (
-                    "A group of benders gets into a diplomatic affair accompanying an "
-                    "ambassador from the Fire Nation."
-                ),
-                "date_start": "2025-10-06T19:30:00Z",
-                "date_end": "2025-10-06T21:30:00Z",
-                "online": True,
-                "location": "Deathbringer discord server",
-                "max_players": 6
-            },
-            request_only=True,
-        ),
-        OpenApiExample(
-            name="Event created (201 response)",
-            value={
-                "id": 17,
-                "organizer": "yul",
-                "players": [],
-                "system": "Avatar Legends: The Roleplaying Game",
-                "title": "Rocky Road from Ba-Sing-Se",
-                "game_setting": "The Earth kingdoms",
-                "description": (
-                    "A group of benders gets into a diplomatic affair accompanying an "
-                    "ambassador from the Fire Nation."
-                ),
-                "date_start": "2025-10-06T22:30:00+03:00",
-                "date_end": "2025-10-07T00:30:00+03:00",
-                "online": True,
-                "location": "Deathbringer discord server",
-                "max_players": 6,
-                "created": "2025-10-04T17:18:26.562903+03:00",
-                "updated_at": "2025-10-04T17:18:26.562903+03:00"
-            },
-            response_only=True,
-        ),
-    ],
+	tags=["Events"],
+	operation_id="createEvent",
+	summary="Create an event",
+	description=(
+		"Create a new event. The organizer is automatically set from the authenticated user "
+		"(request.user) and is read-only. The `players` list is read-only and will be empty "
+		"on creation. For `system`, provide the system name `(slug_field='name')`. "
+		"Dates must be ISO 8601 strings. If `online` is true, `location` can describe the "
+		"virtual venue (e.g., a Discord server)."
+	),
+	request=EventSerializer,
+	responses={
+		201: OpenApiResponse(
+			response=EventSerializer,
+			description="Event successfully created."
+		),
+		400: OpenApiResponse(
+			description="Validation error. The response contains field-specific error details."
+		),
+	},
+	examples=[
+		OpenApiExample(
+			name="Create Avatar Legends event (request)",
+			value={
+				"title": "Rocky Road from Ba-Sing-Se",
+				"system": "Avatar Legends: The Roleplaying Game",
+				"game_setting": "The Earth kingdoms",
+				"description": (
+					"A group of benders gets into a diplomatic affair accompanying an "
+					"ambassador from the Fire Nation."
+				),
+				"date_start": "2025-10-06T19:30:00Z",
+				"date_end": "2025-10-06T21:30:00Z",
+				"online": True,
+				"location": "Deathbringer discord server",
+				"max_players": 6
+			},
+			request_only=True,
+		),
+		OpenApiExample(
+			name="Event created (201 response)",
+			value={
+				"id": 17,
+				"organizer": "yul",
+				"players": [],
+				"system": "Avatar Legends: The Roleplaying Game",
+				"title": "Rocky Road from Ba-Sing-Se",
+				"game_setting": "The Earth kingdoms",
+				"description": (
+					"A group of benders gets into a diplomatic affair accompanying an "
+					"ambassador from the Fire Nation."
+				),
+				"date_start": "2025-10-06T22:30:00+03:00",
+				"date_end": "2025-10-07T00:30:00+03:00",
+				"online": True,
+				"location": "Deathbringer discord server",
+				"max_players": 6,
+				"created": "2025-10-04T17:18:26.562903+03:00",
+				"updated_at": "2025-10-04T17:18:26.562903+03:00"
+			},
+			response_only=True,
+		),
+	],
 )
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
@@ -110,92 +133,200 @@ def addEvent(request):
 		return Response(serializer.data, status=status.HTTP_201_CREATED)
 	return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-@extend_schema(
-	tags=["Events"],
-    description='Retrieve a single event by ID.',
-    methods=["GET"],
-    responses={
-        200: EventSerializer,
-        401: OpenApiResponse(
-            description="Authentication credentials were not provided or given token not valid for any token type",
-            examples=[{"detail": "token_not_valid"}]
-        ),
-        403: OpenApiResponse(
-            description="Not authorized.",
-            examples=[{"detail": "Not authorized."}]
-        ),
-        404: OpenApiResponse(
-            description="Event not found.",
-            examples=[{"detail": "Not found."}]
-        )
-    },
-    summary="Get event by id"
-)
-@extend_schema(
-	tags=["Events"],
-    description='Replace an existing event. Only organizer can update.',
-    methods=["PUT"],
-    responses={
-        200: EventSerializer,
-        401: OpenApiResponse(
-            description="Authentication credentials were not provided or given token not valid for any token type",
-            examples=[{"detail": "token_not_valid"}]
-        ),
-        403: OpenApiResponse(
-            description="Not authorized.",
-            examples=[{"detail": "Not authorized."}]
-        ),
-        404: OpenApiResponse(
-            description="Event not found.",
-            examples=[{"detail": "Not found."}]
-        )
-    },
-    summary="Replace an event info"
-)
-@extend_schema(
-	tags=["Events"],
-    description='Partially update an event. Only organizer can update.',
-    methods=["PATCH"],
-    responses={
-        200: EventSerializer,
-        401: OpenApiResponse(
-            description="Authentication credentials were not provided or given token not valid for any token type",
-            examples=[{"detail": "token_not_valid"}]
-        ),
-        403: OpenApiResponse(
-            description="Not authorized.",
-            examples=[{"detail": "Not authorized."}]
-        ),
-        404: OpenApiResponse(
-            description="Event not found.",
-            examples=[{"detail": "Not found."}]
-        )
-    },
-    summary="Edit an event"
-)
-@extend_schema(
-	tags=["Events"],
-    description='Delete an event. Only organizer can delete.',
-    methods=["DELETE"],
-    responses={
-        204: OpenApiResponse(
-            description="Deleted successfully.",
-            examples=[{"detail": "Deleted successfully."}]
-        ),
-        401: OpenApiResponse(
-            description="Authentication credentials were not provided or given token not valid for any token type",
-            examples=[{"detail": "token_not_valid"}]
-        ),
-        403: OpenApiResponse(
-            description="Not authorized.",
-            examples=[{"detail": "Not authorized."}]
-        ),
-        404: OpenApiResponse(
-            description="Event not found.",
-            examples=[{"detail": "Not found."}]
-        )
-    },
-    summary="Delete an event"
+@extend_schema_view(
+	get=extend_schema(
+		tags=["Events"],
+		summary="Get event by id",
+		description="Retrieve a single event by ID.",
+		parameters=[param_event_id],
+		responses={
+			200: EventSerializer,
+			401: OpenApiResponse(
+				description="Authentication credentials were not provided or token invalid.",
+				examples=[
+					OpenApiExample(
+						"Unauthorized",
+						value={"detail": "token_not_valid"},
+						response_only=True,
+					)
+				],
+			),
+			403: OpenApiResponse(
+				description="Not authorized.",
+				examples=[OpenApiExample("Forbidden", value={"detail": "Not authorized."}, response_only=True)],
+			),
+			404: OpenApiResponse(
+				description="Event not found.",
+				examples=[OpenApiExample("NotFound", value={"detail": "Not found."}, response_only=True)],
+			),
+		},
+		examples=[
+			OpenApiExample(
+				"Event details (200)",
+				value={
+					"id": 5,
+					"organizer": "yul",
+					"players": ["yulik", "yulian"],
+					"system": None,
+					"title": "Curse of the Whispering Woods",
+					"game_setting": "Whispering Woods",
+					"description": "Explore a haunted forest and break a deadly curse.",
+					"date_start": "2025-11-01T12:00:00+02:00",
+					"date_end": "2025-11-01T17:00:00+02:00",
+					"online": True,
+					"location": "Kyiv, downtown",
+					"max_players": 3,
+					"created": "2025-10-02T18:26:03.059575+03:00",
+					"updated_at": "2025-10-03T18:25:17.113148+03:00",
+				},
+				response_only=True,
+			)
+		],
+		operation_id="getEventById",
+	),
+	put=extend_schema(
+		tags=["Events"],
+		summary="Replace an event info",
+		description="Replace an existing event. Only the organizer can update.",
+		parameters=[param_event_id],
+		request=EventSerializer,
+		responses={
+			200: EventSerializer,
+			401: OpenApiResponse(
+				description="Authentication credentials were not provided or token invalid.",
+				examples=[OpenApiExample("Unauthorized", value={"detail": "token_not_valid"}, response_only=True)],
+			),
+			403: OpenApiResponse(
+				description="Not authorized.",
+				examples=[OpenApiExample("Forbidden", value={"detail": "Not authorized."}, response_only=True)],
+			),
+			404: OpenApiResponse(
+				description="Event not found.",
+				examples=[OpenApiExample("NotFound", value={"detail": "Not found."}, response_only=True)],
+			),
+			400: OpenApiResponse(
+				description="Validation error.",
+				examples=[OpenApiExample("BadRequest", value={"title": ["This field is required."]}, response_only=True)],
+			),
+		},
+		examples=[
+			OpenApiExample(
+				"Replace (request)",
+				value={
+					"title": "Curse of the Whispering Woods - Revised",
+					"system": "DnD5e",
+					"game_setting": "Whispering Woods",
+					"description": "Updated description",
+					"date_start": "2025-11-01T12:00:00Z",
+					"date_end": "2025-11-01T17:00:00Z",
+					"online": True,
+					"location": "Kyiv, downtown",
+					"max_players": 4,
+				},
+				request_only=True,
+			),
+			OpenApiExample(
+				"Replace (200 response)",
+				value={
+					"id": 5,
+					"organizer": "yul",
+					"players": ["yulik", "yulian"],
+					"system": "DnD5e",
+					"title": "Curse of the Whispering Woods - Revised",
+					"game_setting": "Whispering Woods",
+					"description": "Updated description",
+					"date_start": "2025-11-01T12:00:00+00:00",
+					"date_end": "2025-11-01T17:00:00+00:00",
+					"online": True,
+					"location": "Kyiv, downtown",
+					"max_players": 4,
+					"created": "2025-10-02T18:26:03.059575+03:00",
+					"updated_at": "2025-10-04T10:00:00+03:00",
+				},
+				response_only=True,
+			),
+		],
+		operation_id="replaceEventById",
+	),
+	patch=extend_schema(
+		tags=["Events"],
+		summary="Edit an event",
+		description="Partially update an event. Only the organizer can update.",
+		parameters=[param_event_id],
+		request=EventSerializer,
+		responses={
+			200: EventSerializer,
+			401: OpenApiResponse(
+				description="Authentication credentials were not provided or token invalid.",
+				examples=[OpenApiExample("Unauthorized", value={"detail": "token_not_valid"}, response_only=True)],
+			),
+			403: OpenApiResponse(
+				description="Not authorized.",
+				examples=[OpenApiExample("Forbidden", value={"detail": "Not authorized."}, response_only=True)],
+			),
+			404: OpenApiResponse(
+				description="Event not found.",
+				examples=[OpenApiExample("NotFound", value={"detail": "Not found."}, response_only=True)],
+			),
+			400: OpenApiResponse(
+				description="Validation error.",
+				examples=[OpenApiExample("BadRequest", value={"max_players": ["Ensure this value is less than or equal to 100."]}, response_only=True)],
+			),
+		},
+		examples=[
+			OpenApiExample(
+				"Partial update (request)",
+				value={"title": "Curse of the Whispering Woods — Final"},
+				request_only=True,
+			),
+			OpenApiExample(
+				"Partial update (200 response)",
+				value={
+					"id": 5,
+					"organizer": "yul",
+					"players": ["yulik", "yulian"],
+					"system": None,
+					"title": "Curse of the Whispering Woods — Final",
+					"game_setting": "Whispering Woods",
+					"description": "Explore a haunted forest and break a deadly curse.",
+					"date_start": "2025-11-01T12:00:00+02:00",
+					"date_end": "2025-11-01T17:00:00+02:00",
+					"online": True,
+					"location": "Kyiv, downtown",
+					"max_players": 3,
+					"created": "2025-10-02T18:26:03.059575+03:00",
+					"updated_at": "2025-10-04T11:20:00+03:00",
+				},
+				response_only=True,
+			),
+		],
+		operation_id="partialUpdateEventById",
+	),
+	delete=extend_schema(
+		tags=["Events"],
+		summary="Delete an event",
+		description="Delete an event. Only the organizer can delete.",
+		parameters=[param_event_id],
+		responses={
+			204: OpenApiResponse(
+				description="Deleted successfully.",
+				examples=[OpenApiExample("NoContent", value={"detail": "Deleted successfully."}, response_only=True)],
+			),
+			401: OpenApiResponse(
+				description="Authentication credentials were not provided or token invalid.",
+				examples=[OpenApiExample("Unauthorized", value={"detail": "token_not_valid"}, response_only=True)],
+			),
+			403: OpenApiResponse(
+				description="Not authorized.",
+				examples=[OpenApiExample("Forbidden", value={"detail": "Not authorized."}, response_only=True)],
+			),
+			404: OpenApiResponse(
+				description="Event not found.",
+				examples=[OpenApiExample("NotFound", value={"detail": "Not found."}, response_only=True)],
+			),
+		},
+		operation_id="deleteEventById",
+	),
 )
 @api_view(["GET", "PUT", "PATCH", "DELETE"])
 @permission_classes([IsAuthenticated])
