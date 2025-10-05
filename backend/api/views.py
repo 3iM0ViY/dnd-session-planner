@@ -8,6 +8,7 @@ from django.contrib.auth.models import User
 from rest_framework import status
 from django.shortcuts import get_object_or_404
 from drf_spectacular.utils import extend_schema, extend_schema_view, OpenApiParameter, OpenApiResponse, OpenApiExample
+from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
 param_event_id = OpenApiParameter(
 	name="event_id",
@@ -362,6 +363,36 @@ def editEvent(request, event_id):
 		event.delete()
 		return Response({"detail": "Deleted successfully."}, status=status.HTTP_204_NO_CONTENT)
 
+@extend_schema(
+    tags=["Authentication"],
+    operation_id="userSignup",
+    summary="Register a new user",
+    description=(
+        "Create a new user account by providing a unique username and password. "
+        "Email is optional. If the username already exists, an error is returned."
+    ),
+    request={
+        "application/json": {
+            "type": "object",
+            "properties": {
+                "username": {"type": "string", "example": "new_player"},
+                "password": {"type": "string", "example": "secret123"},
+                "email": {"type": "string", "example": "new_player@example.com"},
+            },
+            "required": ["username", "password"],
+        }
+    },
+    responses={
+        201: OpenApiResponse(
+            response={"application/json": {"example": {"message": "User created successfully"}}},
+            description="User successfully registered."
+        ),
+        400: OpenApiResponse(
+            response={"application/json": {"example": {"error": "Username already taken"}}},
+            description="Invalid input or username already taken."
+        ),
+    },
+)
 @api_view(["POST"])
 def signup(request):
 	username = request.data.get("username")
@@ -376,6 +407,91 @@ def signup(request):
 
 	user = User.objects.create_user(username=username, password=password, email=email)
 	return Response({"message": "User created successfully"}, status=status.HTTP_201_CREATED)
+
+@extend_schema_view(
+    post=extend_schema(
+        tags=["Authentication"],
+        operation_id="obtainTokenPair",
+        summary="Obtain JWT access and refresh tokens",
+        description=(
+            "Authenticate a user and obtain an access and refresh token pair. "
+            "The access token is used for authenticated API requests, "
+            "while the refresh token can be exchanged for a new access token."
+        ),
+        request={
+            "application/json": {
+                "type": "object",
+                "properties": {
+                    "username": {"type": "string", "example": "yul"},
+                    "password": {"type": "string", "example": "secret123"},
+                },
+                "required": ["username", "password"],
+            }
+        },
+        responses={
+            200: {
+                "type": "object",
+                "properties": {
+                    "refresh": {"type": "string", "example": "eyJhbGciOiJIUzI1NiIsInR5..."},
+                    "access": {"type": "string", "example": "eyJhbGciOiJIUzI1NiIsInR5..."},
+                },
+            },
+            401: {
+                "type": "object",
+                "properties": {
+                    "detail": {"type": "string", "example": "No active account found with the given credentials"}
+                },
+            },
+        },
+        examples=[
+            OpenApiExample(
+                name="Valid login",
+                value={"refresh": "<refresh_token>", "access": "<access_token>"},
+                response_only=True,
+            ),
+        ],
+    )
+)
+class TokenObtainPairViewSchema(TokenObtainPairView):
+    pass
+
+
+@extend_schema_view(
+    post=extend_schema(
+        tags=["Authentication"],
+        operation_id="refreshToken",
+        summary="Refresh the access token",
+        description=(
+            "Exchange a valid refresh token for a new access token. "
+            "Use this endpoint when your access token has expired."
+        ),
+        request={
+            "application/json": {
+                "type": "object",
+                "properties": {
+                    "refresh": {"type": "string", "example": "<refresh_token>"},
+                },
+                "required": ["refresh"],
+            }
+        },
+        responses={
+            200: {
+                "type": "object",
+                "properties": {
+                    "access": {"type": "string", "example": "<new_access_token>"},
+                },
+            },
+            401: {
+                "type": "object",
+                "properties": {
+                    "detail": {"type": "string", "example": "Token is invalid or expired"},
+                },
+            },
+        },
+    )
+)
+class TokenRefreshViewSchema(TokenRefreshView):
+    pass
 
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
