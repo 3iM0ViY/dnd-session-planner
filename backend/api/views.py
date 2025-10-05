@@ -17,6 +17,17 @@ param_event_id = OpenApiParameter(
 	description="The unique ID of the event."
 )
 
+param_request_id = OpenApiParameter(
+	name="request_id",
+	type=int,
+	location=OpenApiParameter.PATH,
+	description="The unique ID of the join request."
+)
+
+##########
+# Events #
+##########
+
 @extend_schema(
 	tags=["Events"],
 	operation_id="listEvents",
@@ -363,35 +374,39 @@ def editEvent(request, event_id):
 		event.delete()
 		return Response({"detail": "Deleted successfully."}, status=status.HTTP_204_NO_CONTENT)
 
+##################
+# Authentication #
+##################
+
 @extend_schema(
-    tags=["Authentication"],
-    operation_id="userSignup",
-    summary="Register a new user",
-    description=(
-        "Create a new user account by providing a unique username and password. "
-        "Email is optional. If the username already exists, an error is returned."
-    ),
-    request={
-        "application/json": {
-            "type": "object",
-            "properties": {
-                "username": {"type": "string", "example": "new_player"},
-                "password": {"type": "string", "example": "secret123"},
-                "email": {"type": "string", "example": "new_player@example.com"},
-            },
-            "required": ["username", "password"],
-        }
-    },
-    responses={
-        201: OpenApiResponse(
-            response={"application/json": {"example": {"message": "User created successfully"}}},
-            description="User successfully registered."
-        ),
-        400: OpenApiResponse(
-            response={"application/json": {"example": {"error": "Username already taken"}}},
-            description="Invalid input or username already taken."
-        ),
-    },
+	tags=["Authentication"],
+	operation_id="userSignup",
+	summary="Register a new user",
+	description=(
+		"Create a new user account by providing a unique username and password. "
+		"Email is optional. If the username already exists, an error is returned."
+	),
+	request={
+		"application/json": {
+			"type": "object",
+			"properties": {
+				"username": {"type": "string", "example": "new_player"},
+				"password": {"type": "string", "example": "secret123"},
+				"email": {"type": "string", "example": "new_player@example.com"},
+			},
+			"required": ["username", "password"],
+		}
+	},
+	responses={
+		201: OpenApiResponse(
+			response={"application/json": {"example": {"message": "User created successfully"}}},
+			description="User successfully registered."
+		),
+		400: OpenApiResponse(
+			response={"application/json": {"example": {"error": "Username already taken"}}},
+			description="Invalid input or username already taken."
+		),
+	},
 )
 @api_view(["POST"])
 def signup(request):
@@ -409,90 +424,139 @@ def signup(request):
 	return Response({"message": "User created successfully"}, status=status.HTTP_201_CREATED)
 
 @extend_schema_view(
-    post=extend_schema(
-        tags=["Authentication"],
-        operation_id="obtainTokenPair",
-        summary="Obtain JWT access and refresh tokens",
-        description=(
-            "Authenticate a user and obtain an access and refresh token pair. "
-            "The access token is used for authenticated API requests, "
-            "while the refresh token can be exchanged for a new access token."
-        ),
-        request={
-            "application/json": {
-                "type": "object",
-                "properties": {
-                    "username": {"type": "string", "example": "yul"},
-                    "password": {"type": "string", "example": "secret123"},
-                },
-                "required": ["username", "password"],
-            }
-        },
-        responses={
-            200: {
-                "type": "object",
-                "properties": {
-                    "refresh": {"type": "string", "example": "eyJhbGciOiJIUzI1NiIsInR5..."},
-                    "access": {"type": "string", "example": "eyJhbGciOiJIUzI1NiIsInR5..."},
-                },
-            },
-            401: {
-                "type": "object",
-                "properties": {
-                    "detail": {"type": "string", "example": "No active account found with the given credentials"}
-                },
-            },
-        },
-        examples=[
-            OpenApiExample(
-                name="Valid login",
-                value={"refresh": "<refresh_token>", "access": "<access_token>"},
-                response_only=True,
-            ),
-        ],
-    )
+	post=extend_schema(
+		tags=["Authentication"],
+		operation_id="obtainTokenPair",
+		summary="Obtain JWT access and refresh tokens",
+		description=(
+			"Authenticate a user and obtain an access and refresh token pair. "
+			"The access token is used for authenticated API requests, "
+			"while the refresh token can be exchanged for a new access token."
+		),
+		request={
+			"application/json": {
+				"type": "object",
+				"properties": {
+					"username": {"type": "string", "example": "yul"},
+					"password": {"type": "string", "example": "secret123"},
+				},
+				"required": ["username", "password"],
+			}
+		},
+		responses={
+			200: {
+				"type": "object",
+				"properties": {
+					"refresh": {"type": "string", "example": "eyJhbGciOiJIUzI1NiIsInR5..."},
+					"access": {"type": "string", "example": "eyJhbGciOiJIUzI1NiIsInR5..."},
+				},
+			},
+			401: {
+				"type": "object",
+				"properties": {
+					"detail": {"type": "string", "example": "No active account found with the given credentials"}
+				},
+			},
+		},
+		examples=[
+			OpenApiExample(
+				name="Valid login",
+				value={"refresh": "<refresh_token>", "access": "<access_token>"},
+				response_only=True,
+			),
+		],
+	)
 )
 class TokenObtainPairViewSchema(TokenObtainPairView):
-    pass
+	pass
 
 
 @extend_schema_view(
-    post=extend_schema(
-        tags=["Authentication"],
-        operation_id="refreshToken",
-        summary="Refresh the access token",
-        description=(
-            "Exchange a valid refresh token for a new access token. "
-            "Use this endpoint when your access token has expired."
-        ),
-        request={
-            "application/json": {
-                "type": "object",
-                "properties": {
-                    "refresh": {"type": "string", "example": "<refresh_token>"},
-                },
-                "required": ["refresh"],
-            }
-        },
-        responses={
-            200: {
-                "type": "object",
-                "properties": {
-                    "access": {"type": "string", "example": "<new_access_token>"},
-                },
-            },
-            401: {
-                "type": "object",
-                "properties": {
-                    "detail": {"type": "string", "example": "Token is invalid or expired"},
-                },
-            },
-        },
-    )
+	post=extend_schema(
+		tags=["Authentication"],
+		operation_id="refreshToken",
+		summary="Refresh the access token",
+		description=(
+			"Exchange a valid refresh token for a new access token. "
+			"Use this endpoint when your access token has expired."
+		),
+		request={
+			"application/json": {
+				"type": "object",
+				"properties": {
+					"refresh": {"type": "string", "example": "<refresh_token>"},
+				},
+				"required": ["refresh"],
+			}
+		},
+		responses={
+			200: {
+				"type": "object",
+				"properties": {
+					"access": {"type": "string", "example": "<new_access_token>"},
+				},
+			},
+			401: {
+				"type": "object",
+				"properties": {
+					"detail": {"type": "string", "example": "Token is invalid or expired"},
+				},
+			},
+		},
+	)
 )
 class TokenRefreshViewSchema(TokenRefreshView):
-    pass
+	pass
 
+####################
+# Joining an Event #
+####################
+
+@extend_schema(
+	tags=["Join Requests"],
+	operation_id="requestJoinEvent",
+	summary="Request to join an event",
+	description=(
+		"Creates a pending join request for the given event. "
+		"The authenticated user cannot join their own event. "
+		"If the user already requested or the event is full, an error is returned."
+	),
+	parameters=[param_event_id],
+	responses={
+		201: OpenApiResponse(
+			response=EventRequestSerializer,
+			description="Join request successfully created and pending approval."
+		),
+		400: OpenApiResponse(
+			description="Bad request (already requested, event full, or organizer tried to join)."
+		),
+		401: OpenApiResponse(description="Authentication credentials were not provided."),
+		404: OpenApiResponse(description="Event not found."),
+	},
+	examples=[
+		OpenApiExample(
+			name="Join request created",
+			value={
+				"id": 14,
+				"event": 5,
+				"user": "yulik",
+				"status": "pending",
+				"created_at": "2025-10-05T13:00:00+03:00"
+			},
+			response_only=True,
+		),
+		OpenApiExample(
+			name="Already requested (400)",
+			value={"detail": "You already requested to join this event."},
+			response_only=True,
+		),
+		OpenApiExample(
+			name="Organizer tries to join (400)",
+			value={"detail": "You are the organizer of this event."},
+			response_only=True,
+		),
+	],
+)
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
 def join_event_api(request, event_id):
@@ -514,6 +578,34 @@ def join_event_api(request, event_id):
 	req = EventRequest.objects.create(event=event, user=request.user, status="pending")
 	return Response(EventRequestSerializer(req).data, status=status.HTTP_201_CREATED)
 
+@extend_schema(
+	tags=["Join Requests"],
+	operation_id="listJoinRequests",
+	summary="List join requests for an event",
+	description=(
+		"Returns all join requests for a specific event. "
+		"Only the organizer of the event can access this endpoint."
+	),
+	parameters=[param_event_id],
+	responses={
+		200: OpenApiResponse(
+			response=EventRequestSerializer(many=True),
+			description="List of join requests for this event."
+		),
+		403: OpenApiResponse(description="User is not the organizer of this event."),
+		404: OpenApiResponse(description="Event not found."),
+	},
+	examples=[
+		OpenApiExample(
+			"Example response",
+			value=[
+				{"id": 1, "user": "yulik", "status": "pending"},
+				{"id": 2, "user": "bogdan", "status": "approved"},
+			],
+			response_only=True,
+		),
+	],
+)
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def list_requests_api(request, event_id):
@@ -527,6 +619,61 @@ def list_requests_api(request, event_id):
 	serializer = EventRequestSerializer(requests, many=True)
 	return Response(serializer.data)
 
+@extend_schema(
+	tags=["Join Requests"],
+	operation_id="updateJoinRequest",
+	summary="Approve or reject a join request",
+	description=(
+		"Allows the event organizer to approve or reject a player's join request. "
+		"Only the organizer can perform this action."
+	),
+	parameters=[param_request_id],
+	request={
+		"application/json": {
+			"type": "object",
+			"properties": {
+				"status": {
+					"type": "string",
+					"enum": ["approved", "rejected"],
+					"example": "approved"
+				}
+			},
+			"required": ["status"],
+		}
+	},
+	responses={
+		200: OpenApiResponse(
+			response=EventRequestSerializer,
+			description="Join request updated successfully."
+		),
+		400: OpenApiResponse(description="Invalid status value."),
+		403: OpenApiResponse(description="User is not the organizer of this event."),
+		404: OpenApiResponse(description="Join request not found."),
+	},
+	examples=[
+		OpenApiExample(
+			"Approve request (request body)",
+			value={"status": "approved"},
+			request_only=True,
+		),
+		OpenApiExample(
+			"Approved response (200)",
+			value={
+				"id": 5,
+				"event": 2,
+				"user": "playerX",
+				"status": "approved",
+				"created_at": "2025-10-05T12:00:00+03:00"
+			},
+			response_only=True,
+		),
+		OpenApiExample(
+			"Invalid status (400)",
+			value={"detail": "Invalid status."},
+			response_only=True,
+		),
+	],
+)
 @api_view(["PATCH"])
 @permission_classes([IsAuthenticated])
 def update_request_api(request, request_id):
