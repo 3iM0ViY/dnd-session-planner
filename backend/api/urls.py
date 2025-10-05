@@ -14,7 +14,7 @@ urlpatterns = [
 	# Auth
 	path('token/', views.TokenObtainPairViewSchema.as_view(), name='token_obtain_pair'),
 	path('token/refresh/', views.TokenRefreshViewSchema.as_view(), name='token_refresh'),
-	path("signup/", views.signup, name="signup"),
+	path("signup/", views.signup, name="api_signup"),
 
 	# Event join/approval
 	path("events/<int:event_id>/join/", views.join_event_api, name="api_join_event"),
