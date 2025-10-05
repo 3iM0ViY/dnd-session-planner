@@ -537,7 +537,10 @@ class TokenRefreshViewSchema(TokenRefreshView):
 		400: OpenApiResponse(
 			description="Bad request (already requested, event full, or organizer tried to join)."
 		),
-		401: OpenApiResponse(description="Authentication credentials were not provided."),
+		401: OpenApiResponse(
+				description="Authentication credentials were not provided or token invalid.",
+				examples=[OpenApiExample("Unauthorized", value={"detail": "token_not_valid"}, response_only=True)],
+			),
 		404: OpenApiResponse(description="Event not found."),
 	},
 	examples=[
@@ -745,7 +748,7 @@ def update_request_api(request, request_id):
 			"Create a new TTRPG system. "
 			"Each system must have a unique name. "
 			"This endpoint is typically used by administrators or organizers "
-			"to expand the available set of systems."
+			"to expand the available set of systems. You need to be authenticated to use this."
 		),
 		request=SystemSerializer,
 		responses={
@@ -753,7 +756,11 @@ def update_request_api(request, request_id):
 				response=SystemSerializer,
 				description="System successfully created."
 			),
-			400: OpenApiResponse(description="Validation error — duplicate or invalid fields.")
+			400: OpenApiResponse(description="Validation error — duplicate or invalid fields."),
+			401: OpenApiResponse(
+				description="Authentication credentials were not provided or token invalid.",
+				examples=[OpenApiExample("Unauthorized", value={"detail": "token_not_valid"}, response_only=True)],
+			),
 		},
 		examples=[
 			OpenApiExample(
@@ -775,9 +782,11 @@ def update_request_api(request, request_id):
 	),
 )
 @api_view(["GET", "POST"])
-# @permission_classes([IsAuthenticated])
 def system_list_create(request):
 	"""List all systems or create a new one."""
+	if request.method == "POST" and not request.user.is_authenticated:
+		return Response({"detail": "Authentication required."}, status=status.HTTP_401_UNAUTHORIZED)
+
 	if request.method == "GET":
 		systems = System.objects.all()
 		serializer = SystemSerializer(systems, many=True)
@@ -823,7 +832,10 @@ def system_list_create(request):
 		responses={
 			200: SystemSerializer,
 			400: OpenApiResponse(description="Validation error."),
-			401: OpenApiResponse(description="Authentication credentials were not provided."),
+			401: OpenApiResponse(
+				description="Authentication credentials were not provided or token invalid.",
+				examples=[OpenApiExample("Unauthorized", value={"detail": "token_not_valid"}, response_only=True)],
+			),
 			404: OpenApiResponse(description="System not found."),
 		},
 		examples=[
@@ -856,7 +868,10 @@ def system_list_create(request):
 		responses={
 			200: SystemSerializer,
 			400: OpenApiResponse(description="Validation error."),
-			401: OpenApiResponse(description="Authentication credentials were not provided."),
+			401: OpenApiResponse(
+				description="Authentication credentials were not provided or token invalid.",
+				examples=[OpenApiExample("Unauthorized", value={"detail": "token_not_valid"}, response_only=True)],
+			),
 			404: OpenApiResponse(description="System not found."),
 		},
 		examples=[
@@ -884,7 +899,10 @@ def system_list_create(request):
 		parameters=[param_system_id],
 		responses={
 			204: OpenApiResponse(description="Deleted successfully."),
-			401: OpenApiResponse(description="Authentication credentials were not provided."),
+			401: OpenApiResponse(
+				description="Authentication credentials were not provided or token invalid.",
+				examples=[OpenApiExample("Unauthorized", value={"detail": "token_not_valid"}, response_only=True)],
+			),
 			404: OpenApiResponse(description="System not found."),
 		},
 		examples=[
@@ -918,4 +936,4 @@ def system_detail(request, system_id):
 
 	elif request.method == "DELETE":
 		system.delete()
-		return Response(status=status.HTTP_204_NO_CONTENT)
+		return Response({"detail": "Deleted successfully."}, status=status.HTTP_204_NO_CONTENT)
