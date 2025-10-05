@@ -24,6 +24,13 @@ param_request_id = OpenApiParameter(
 	description="The unique ID of the join request."
 )
 
+param_system_id = OpenApiParameter(
+	name="system_id",
+	type=int,
+	location=OpenApiParameter.PATH,
+	description="The unique ID of the TTRPG system."
+)
+
 ##########
 # Events #
 ##########
@@ -693,6 +700,80 @@ def update_request_api(request, request_id):
 
 	return Response(EventRequestSerializer(join_request).data)
 
+################
+# Game Systems #
+################
+
+@extend_schema_view(
+	get=extend_schema(
+		tags=["Game Systems"],
+		operation_id="listSystems",
+		summary="List all game systems",
+		description=(
+			"Retrieve a list of all available TTRPG systems. "
+			"Each system represents a distinct tabletop role-playing game ruleset "
+			"(e.g. Dungeons & Dragons 5e, Pathfinder 2e, Cyberpunk RED)."
+		),
+		responses={
+			200: OpenApiResponse(
+				response=SystemSerializer(many=True),
+				description="List of all available systems."
+			)
+		},
+		examples=[
+			OpenApiExample(
+				name="List systems (200)",
+				value=[
+					{
+						"id": 1,
+						"name": "Dungeons & Dragons 5e",
+					},
+					{
+						"id": 2,
+						"name": "Cyberpunk RED",
+					}
+				],
+				response_only=True,
+			)
+		],
+	),
+	post=extend_schema(
+		tags=["Game Systems"],
+		operation_id="createSystem",
+		summary="Create a new game system",
+		description=(
+			"Create a new TTRPG system. "
+			"Each system must have a unique name. "
+			"This endpoint is typically used by administrators or organizers "
+			"to expand the available set of systems."
+		),
+		request=SystemSerializer,
+		responses={
+			201: OpenApiResponse(
+				response=SystemSerializer,
+				description="System successfully created."
+			),
+			400: OpenApiResponse(description="Validation error — duplicate or invalid fields.")
+		},
+		examples=[
+			OpenApiExample(
+				name="Create new system (request)",
+				value={
+					"name": "Avatar Legends: The Roleplaying Game",
+				},
+				request_only=True,
+			),
+			OpenApiExample(
+				name="Created system (201 response)",
+				value={
+					"id": 3,
+					"name": "Avatar Legends: The Roleplaying Game",
+				},
+				response_only=True,
+			),
+		],
+	),
+)
 @api_view(["GET", "POST"])
 # @permission_classes([IsAuthenticated])
 def system_list_create(request):
@@ -709,6 +790,112 @@ def system_list_create(request):
 			return Response(serializer.data, status=status.HTTP_201_CREATED)
 		return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+@extend_schema_view(
+	get=extend_schema(
+		tags=["Game Systems"],
+		operation_id="getSystemById",
+		summary="Retrieve a single game system",
+		description="Return a single TTRPG system by ID.",
+		parameters=[param_system_id],
+		responses={
+			200: SystemSerializer,
+			404: OpenApiResponse(description="System not found."),
+		},
+		examples=[
+			OpenApiExample(
+				"System details (200)",
+				value={
+					"id": 2,
+					"name": "Cyberpunk RED",
+					"description": "Near-future dystopian RPG with style and substance."
+				},
+				response_only=True,
+			)
+		],
+	),
+	put=extend_schema(
+		tags=["Game Systems"],
+		operation_id="replaceSystem",
+		summary="Replace a game system",
+		description="Replace all fields of an existing TTRPG system. Authentication required.",
+		parameters=[param_system_id],
+		request=SystemSerializer,
+		responses={
+			200: SystemSerializer,
+			400: OpenApiResponse(description="Validation error."),
+			401: OpenApiResponse(description="Authentication credentials were not provided."),
+			404: OpenApiResponse(description="System not found."),
+		},
+		examples=[
+			OpenApiExample(
+				"Replace system (request)",
+				value={
+					"name": "Dungeons & Dragons 5e",
+					"description": "Revised edition of the classic fantasy TTRPG."
+				},
+				request_only=True,
+			),
+			OpenApiExample(
+				"Replace system (response)",
+				value={
+					"id": 1,
+					"name": "Dungeons & Dragons 5e",
+					"description": "Revised edition of the classic fantasy TTRPG."
+				},
+				response_only=True,
+			),
+		],
+	),
+	patch=extend_schema(
+		tags=["Game Systems"],
+		operation_id="updateSystem",
+		summary="Partially update a game system",
+		description="Update one or more fields of an existing TTRPG system. Authentication required.",
+		parameters=[param_system_id],
+		request=SystemSerializer,
+		responses={
+			200: SystemSerializer,
+			400: OpenApiResponse(description="Validation error."),
+			401: OpenApiResponse(description="Authentication credentials were not provided."),
+			404: OpenApiResponse(description="System not found."),
+		},
+		examples=[
+			OpenApiExample(
+				"Partial update (request)",
+				value={"description": "Updated system description."},
+				request_only=True,
+			),
+			OpenApiExample(
+				"Partial update (response)",
+				value={
+					"id": 3,
+					"name": "Avatar Legends: The Roleplaying Game",
+					"description": "Updated system description."
+				},
+				response_only=True,
+			),
+		],
+	),
+	delete=extend_schema(
+		tags=["Game Systems"],
+		operation_id="deleteSystem",
+		summary="Delete a game system",
+		description="Delete a TTRPG system by ID. Authentication required.",
+		parameters=[param_system_id],
+		responses={
+			204: OpenApiResponse(description="Deleted successfully."),
+			401: OpenApiResponse(description="Authentication credentials were not provided."),
+			404: OpenApiResponse(description="System not found."),
+		},
+		examples=[
+			OpenApiExample(
+				"Deleted successfully",
+				value={"detail": "Deleted successfully."},
+				response_only=True,
+			),
+		],
+	),
+)
 @api_view(["GET", "PUT", "PATCH", "DELETE"])
 @permission_classes([IsAuthenticated])
 def system_detail(request, system_id):
