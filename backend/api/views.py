@@ -7,10 +7,67 @@ from rest_framework.permissions import IsAuthenticated
 from django.contrib.auth.models import User
 from rest_framework import status
 from django.shortcuts import get_object_or_404
+from drf_spectacular.utils import extend_schema, extend_schema_view, OpenApiParameter, OpenApiResponse, OpenApiExample
+from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
+param_event_id = OpenApiParameter(
+	name="event_id",
+	type=int,
+	location=OpenApiParameter.PATH,
+	description="The unique ID of the event."
+)
+
+param_request_id = OpenApiParameter(
+	name="request_id",
+	type=int,
+	location=OpenApiParameter.PATH,
+	description="The unique ID of the join request."
+)
+
+param_system_id = OpenApiParameter(
+	name="system_id",
+	type=int,
+	location=OpenApiParameter.PATH,
+	description="The unique ID of the TTRPG system."
+)
+
+##########
+# Events #
+##########
+
+@extend_schema(
+	tags=["Events"],
+	operation_id="listEvents",
+	summary="Get Events",
+	description=(
+		"Retrieve a list of all events, ordered by how soon their `date_start` is. "
+		"Optionally, filter events by TTRPG system using the `system` query parameter. "
+		"If no filter is applied, all events are returned."
+	),
+	parameters=[
+		OpenApiParameter(
+			name='system',
+			description='Filter events by the system name (case-insensitive). Will return an empty list if there is match with any of the `system.name`s.',
+			required=False,
+			type=str,
+			examples=[
+				OpenApiExample(
+					name="Example parameter",
+					value="/?system=Cyberpunk RED",
+					response_only=True
+				)
+			]
+		)
+	],
+	responses=OpenApiResponse(
+		response=EventSerializer(many=True),
+		description="List of events matching the filter (or all events if no filter)."
+	),
+)
 @api_view(["GET"])
 # @permission_classes([IsAuthenticated])
 def getData(request):
+	"""Receive all Events, ordered by how soon their date_start is"""
 	events = Event.objects.all()
 
 	# Filtering by system name
@@ -21,6 +78,71 @@ def getData(request):
 	serializer = EventSerializer(events, many=True)
 	return Response(serializer.data)
 
+@extend_schema(
+	tags=["Events"],
+	operation_id="createEvent",
+	summary="Create an event",
+	description=(
+		"Create a new event. The organizer is automatically set from the authenticated user "
+		"(request.user) and is read-only. The `players` list is read-only and will be empty "
+		"on creation. For `system`, provide the system name `(slug_field='name')`. "
+		"Dates must be ISO 8601 strings. If `online` is true, `location` can describe the "
+		"virtual venue (e.g., a Discord server)."
+	),
+	request=EventSerializer,
+	responses={
+		201: OpenApiResponse(
+			response=EventSerializer,
+			description="Event successfully created."
+		),
+		400: OpenApiResponse(
+			description="Validation error. The response contains field-specific error details."
+		),
+	},
+	examples=[
+		OpenApiExample(
+			name="Create Avatar Legends event (request)",
+			value={
+				"title": "Rocky Road from Ba-Sing-Se",
+				"system": "Avatar Legends: The Roleplaying Game",
+				"game_setting": "The Earth kingdoms",
+				"description": (
+					"A group of benders gets into a diplomatic affair accompanying an "
+					"ambassador from the Fire Nation."
+				),
+				"date_start": "2025-10-06T19:30:00Z",
+				"date_end": "2025-10-06T21:30:00Z",
+				"online": True,
+				"location": "Deathbringer discord server",
+				"max_players": 6
+			},
+			request_only=True,
+		),
+		OpenApiExample(
+			name="Event created (201 response)",
+			value={
+				"id": 17,
+				"organizer": "yul",
+				"players": [],
+				"system": "Avatar Legends: The Roleplaying Game",
+				"title": "Rocky Road from Ba-Sing-Se",
+				"game_setting": "The Earth kingdoms",
+				"description": (
+					"A group of benders gets into a diplomatic affair accompanying an "
+					"ambassador from the Fire Nation."
+				),
+				"date_start": "2025-10-06T22:30:00+03:00",
+				"date_end": "2025-10-07T00:30:00+03:00",
+				"online": True,
+				"location": "Deathbringer discord server",
+				"max_players": 6,
+				"created": "2025-10-04T17:18:26.562903+03:00",
+				"updated_at": "2025-10-04T17:18:26.562903+03:00"
+			},
+			response_only=True,
+		),
+	],
+)
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
 def addEvent(request):
@@ -30,6 +152,201 @@ def addEvent(request):
 		return Response(serializer.data, status=status.HTTP_201_CREATED)
 	return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+@extend_schema_view(
+	get=extend_schema(
+		tags=["Events"],
+		summary="Get event by id",
+		description="Retrieve a single event by ID.",
+		parameters=[param_event_id],
+		responses={
+			200: EventSerializer,
+			401: OpenApiResponse(
+				description="Authentication credentials were not provided or token invalid.",
+				examples=[
+					OpenApiExample(
+						"Unauthorized",
+						value={"detail": "token_not_valid"},
+						response_only=True,
+					)
+				],
+			),
+			403: OpenApiResponse(
+				description="Not authorized.",
+				examples=[OpenApiExample("Forbidden", value={"detail": "Not authorized."}, response_only=True)],
+			),
+			404: OpenApiResponse(
+				description="Event not found.",
+				examples=[OpenApiExample("NotFound", value={"detail": "Not found."}, response_only=True)],
+			),
+		},
+		examples=[
+			OpenApiExample(
+				"Event details (200)",
+				value={
+					"id": 5,
+					"organizer": "yul",
+					"players": ["yulik", "yulian"],
+					"system": None,
+					"title": "Curse of the Whispering Woods",
+					"game_setting": "Whispering Woods",
+					"description": "Explore a haunted forest and break a deadly curse.",
+					"date_start": "2025-11-01T12:00:00+02:00",
+					"date_end": "2025-11-01T17:00:00+02:00",
+					"online": True,
+					"location": "Kyiv, downtown",
+					"max_players": 3,
+					"created": "2025-10-02T18:26:03.059575+03:00",
+					"updated_at": "2025-10-03T18:25:17.113148+03:00",
+				},
+				response_only=True,
+			)
+		],
+		operation_id="getEventById",
+	),
+	put=extend_schema(
+		tags=["Events"],
+		summary="Replace an event info",
+		description="Replace an existing event. Only the organizer can update.",
+		parameters=[param_event_id],
+		request=EventSerializer,
+		responses={
+			200: EventSerializer,
+			401: OpenApiResponse(
+				description="Authentication credentials were not provided or token invalid.",
+				examples=[OpenApiExample("Unauthorized", value={"detail": "token_not_valid"}, response_only=True)],
+			),
+			403: OpenApiResponse(
+				description="Not authorized.",
+				examples=[OpenApiExample("Forbidden", value={"detail": "Not authorized."}, response_only=True)],
+			),
+			404: OpenApiResponse(
+				description="Event not found.",
+				examples=[OpenApiExample("NotFound", value={"detail": "Not found."}, response_only=True)],
+			),
+			400: OpenApiResponse(
+				description="Validation error.",
+				examples=[OpenApiExample("BadRequest", value={"title": ["This field is required."]}, response_only=True)],
+			),
+		},
+		examples=[
+			OpenApiExample(
+				"Replace (request)",
+				value={
+					"title": "Curse of the Whispering Woods - Revised",
+					"system": "DnD5e",
+					"game_setting": "Whispering Woods",
+					"description": "Updated description",
+					"date_start": "2025-11-01T12:00:00Z",
+					"date_end": "2025-11-01T17:00:00Z",
+					"online": True,
+					"location": "Kyiv, downtown",
+					"max_players": 4,
+				},
+				request_only=True,
+			),
+			OpenApiExample(
+				"Replace (200 response)",
+				value={
+					"id": 5,
+					"organizer": "yul",
+					"players": ["yulik", "yulian"],
+					"system": "DnD5e",
+					"title": "Curse of the Whispering Woods - Revised",
+					"game_setting": "Whispering Woods",
+					"description": "Updated description",
+					"date_start": "2025-11-01T12:00:00+00:00",
+					"date_end": "2025-11-01T17:00:00+00:00",
+					"online": True,
+					"location": "Kyiv, downtown",
+					"max_players": 4,
+					"created": "2025-10-02T18:26:03.059575+03:00",
+					"updated_at": "2025-10-04T10:00:00+03:00",
+				},
+				response_only=True,
+			),
+		],
+		operation_id="replaceEventById",
+	),
+	patch=extend_schema(
+		tags=["Events"],
+		summary="Edit an event",
+		description="Partially update an event. Only the organizer can update.",
+		parameters=[param_event_id],
+		request=EventSerializer,
+		responses={
+			200: EventSerializer,
+			401: OpenApiResponse(
+				description="Authentication credentials were not provided or token invalid.",
+				examples=[OpenApiExample("Unauthorized", value={"detail": "token_not_valid"}, response_only=True)],
+			),
+			403: OpenApiResponse(
+				description="Not authorized.",
+				examples=[OpenApiExample("Forbidden", value={"detail": "Not authorized."}, response_only=True)],
+			),
+			404: OpenApiResponse(
+				description="Event not found.",
+				examples=[OpenApiExample("NotFound", value={"detail": "Not found."}, response_only=True)],
+			),
+			400: OpenApiResponse(
+				description="Validation error.",
+				examples=[OpenApiExample("BadRequest", value={"max_players": ["Ensure this value is less than or equal to 100."]}, response_only=True)],
+			),
+		},
+		examples=[
+			OpenApiExample(
+				"Partial update (request)",
+				value={"title": "Curse of the Whispering Woods — Final"},
+				request_only=True,
+			),
+			OpenApiExample(
+				"Partial update (200 response)",
+				value={
+					"id": 5,
+					"organizer": "yul",
+					"players": ["yulik", "yulian"],
+					"system": None,
+					"title": "Curse of the Whispering Woods — Final",
+					"game_setting": "Whispering Woods",
+					"description": "Explore a haunted forest and break a deadly curse.",
+					"date_start": "2025-11-01T12:00:00+02:00",
+					"date_end": "2025-11-01T17:00:00+02:00",
+					"online": True,
+					"location": "Kyiv, downtown",
+					"max_players": 3,
+					"created": "2025-10-02T18:26:03.059575+03:00",
+					"updated_at": "2025-10-04T11:20:00+03:00",
+				},
+				response_only=True,
+			),
+		],
+		operation_id="partialUpdateEventById",
+	),
+	delete=extend_schema(
+		tags=["Events"],
+		summary="Delete an event",
+		description="Delete an event. Only the organizer can delete.",
+		parameters=[param_event_id],
+		responses={
+			204: OpenApiResponse(
+				description="Deleted successfully.",
+				examples=[OpenApiExample("NoContent", value={"detail": "Deleted successfully."}, response_only=True)],
+			),
+			401: OpenApiResponse(
+				description="Authentication credentials were not provided or token invalid.",
+				examples=[OpenApiExample("Unauthorized", value={"detail": "token_not_valid"}, response_only=True)],
+			),
+			403: OpenApiResponse(
+				description="Not authorized.",
+				examples=[OpenApiExample("Forbidden", value={"detail": "Not authorized."}, response_only=True)],
+			),
+			404: OpenApiResponse(
+				description="Event not found.",
+				examples=[OpenApiExample("NotFound", value={"detail": "Not found."}, response_only=True)],
+			),
+		},
+		operation_id="deleteEventById",
+	),
+)
 @api_view(["GET", "PUT", "PATCH", "DELETE"])
 @permission_classes([IsAuthenticated])
 def editEvent(request, event_id):
@@ -64,6 +381,40 @@ def editEvent(request, event_id):
 		event.delete()
 		return Response({"detail": "Deleted successfully."}, status=status.HTTP_204_NO_CONTENT)
 
+##################
+# Authentication #
+##################
+
+@extend_schema(
+	tags=["Authentication"],
+	operation_id="userSignup",
+	summary="Register a new user",
+	description=(
+		"Create a new user account by providing a unique username and password. "
+		"Email is optional. If the username already exists, an error is returned."
+	),
+	request={
+		"application/json": {
+			"type": "object",
+			"properties": {
+				"username": {"type": "string", "example": "new_player"},
+				"password": {"type": "string", "example": "secret123"},
+				"email": {"type": "string", "example": "new_player@example.com"},
+			},
+			"required": ["username", "password"],
+		}
+	},
+	responses={
+		201: OpenApiResponse(
+			response={"application/json": {"example": {"message": "User created successfully"}}},
+			description="User successfully registered."
+		),
+		400: OpenApiResponse(
+			response={"application/json": {"example": {"error": "Username already taken"}}},
+			description="Invalid input or username already taken."
+		),
+	},
+)
 @api_view(["POST"])
 def signup(request):
 	username = request.data.get("username")
@@ -79,6 +430,143 @@ def signup(request):
 	user = User.objects.create_user(username=username, password=password, email=email)
 	return Response({"message": "User created successfully"}, status=status.HTTP_201_CREATED)
 
+@extend_schema_view(
+	post=extend_schema(
+		tags=["Authentication"],
+		operation_id="obtainTokenPair",
+		summary="Obtain JWT access and refresh tokens",
+		description=(
+			"Authenticate a user and obtain an access and refresh token pair. "
+			"The access token is used for authenticated API requests, "
+			"while the refresh token can be exchanged for a new access token."
+		),
+		request={
+			"application/json": {
+				"type": "object",
+				"properties": {
+					"username": {"type": "string", "example": "yul"},
+					"password": {"type": "string", "example": "secret123"},
+				},
+				"required": ["username", "password"],
+			}
+		},
+		responses={
+			200: {
+				"type": "object",
+				"properties": {
+					"refresh": {"type": "string", "example": "eyJhbGciOiJIUzI1NiIsInR5..."},
+					"access": {"type": "string", "example": "eyJhbGciOiJIUzI1NiIsInR5..."},
+				},
+			},
+			401: {
+				"type": "object",
+				"properties": {
+					"detail": {"type": "string", "example": "No active account found with the given credentials"}
+				},
+			},
+		},
+		examples=[
+			OpenApiExample(
+				name="Valid login",
+				value={"refresh": "<refresh_token>", "access": "<access_token>"},
+				response_only=True,
+			),
+		],
+	)
+)
+class TokenObtainPairViewSchema(TokenObtainPairView):
+	pass
+
+
+@extend_schema_view(
+	post=extend_schema(
+		tags=["Authentication"],
+		operation_id="refreshToken",
+		summary="Refresh the access token",
+		description=(
+			"Exchange a valid refresh token for a new access token. "
+			"Use this endpoint when your access token has expired."
+		),
+		request={
+			"application/json": {
+				"type": "object",
+				"properties": {
+					"refresh": {"type": "string", "example": "<refresh_token>"},
+				},
+				"required": ["refresh"],
+			}
+		},
+		responses={
+			200: {
+				"type": "object",
+				"properties": {
+					"access": {"type": "string", "example": "<new_access_token>"},
+				},
+			},
+			401: {
+				"type": "object",
+				"properties": {
+					"detail": {"type": "string", "example": "Token is invalid or expired"},
+				},
+			},
+		},
+	)
+)
+class TokenRefreshViewSchema(TokenRefreshView):
+	pass
+
+####################
+# Joining an Event #
+####################
+
+@extend_schema(
+	tags=["Join Requests"],
+	operation_id="requestJoinEvent",
+	summary="Request to join an event",
+	description=(
+		"Creates a pending join request for the given event. "
+		"The authenticated user cannot join their own event. "
+		"If the user already requested or the event is full, an error is returned."
+	),
+	parameters=[param_event_id],
+	responses={
+		201: OpenApiResponse(
+			response=EventRequestSerializer,
+			description="Join request successfully created and pending approval."
+		),
+		400: OpenApiResponse(
+			description="Bad request (already requested, event full, or organizer tried to join)."
+		),
+		401: OpenApiResponse(
+				description="Authentication credentials were not provided or token invalid.",
+				examples=[OpenApiExample("Unauthorized", value={"detail": "token_not_valid"}, response_only=True)],
+			),
+		404: OpenApiResponse(description="Event not found."),
+	},
+	examples=[
+		OpenApiExample(
+			name="Join request created",
+			value={
+				"id": 14,
+				"event": 5,
+				"user": "yulik",
+				"status": "pending",
+				"created_at": "2025-10-05T13:00:00+03:00"
+			},
+			response_only=True,
+		),
+		OpenApiExample(
+			name="Already requested (400)",
+			value={"detail": "You already requested to join this event."},
+			response_only=True,
+		),
+		OpenApiExample(
+			name="Organizer tries to join (400)",
+			value={"detail": "You are the organizer of this event."},
+			response_only=True,
+		),
+	],
+)
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
 def join_event_api(request, event_id):
@@ -100,6 +588,34 @@ def join_event_api(request, event_id):
 	req = EventRequest.objects.create(event=event, user=request.user, status="pending")
 	return Response(EventRequestSerializer(req).data, status=status.HTTP_201_CREATED)
 
+@extend_schema(
+	tags=["Join Requests"],
+	operation_id="listJoinRequests",
+	summary="List join requests for an event",
+	description=(
+		"Returns all join requests for a specific event. "
+		"Only the organizer of the event can access this endpoint."
+	),
+	parameters=[param_event_id],
+	responses={
+		200: OpenApiResponse(
+			response=EventRequestSerializer(many=True),
+			description="List of join requests for this event."
+		),
+		403: OpenApiResponse(description="User is not the organizer of this event."),
+		404: OpenApiResponse(description="Event not found."),
+	},
+	examples=[
+		OpenApiExample(
+			"Example response",
+			value=[
+				{"id": 1, "user": "yulik", "status": "pending"},
+				{"id": 2, "user": "bogdan", "status": "approved"},
+			],
+			response_only=True,
+		),
+	],
+)
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def list_requests_api(request, event_id):
@@ -113,6 +629,61 @@ def list_requests_api(request, event_id):
 	serializer = EventRequestSerializer(requests, many=True)
 	return Response(serializer.data)
 
+@extend_schema(
+	tags=["Join Requests"],
+	operation_id="updateJoinRequest",
+	summary="Approve or reject a join request",
+	description=(
+		"Allows the event organizer to approve or reject a player's join request. "
+		"Only the organizer can perform this action."
+	),
+	parameters=[param_request_id],
+	request={
+		"application/json": {
+			"type": "object",
+			"properties": {
+				"status": {
+					"type": "string",
+					"enum": ["approved", "rejected"],
+					"example": "approved"
+				}
+			},
+			"required": ["status"],
+		}
+	},
+	responses={
+		200: OpenApiResponse(
+			response=EventRequestSerializer,
+			description="Join request updated successfully."
+		),
+		400: OpenApiResponse(description="Invalid status value."),
+		403: OpenApiResponse(description="User is not the organizer of this event."),
+		404: OpenApiResponse(description="Join request not found."),
+	},
+	examples=[
+		OpenApiExample(
+			"Approve request (request body)",
+			value={"status": "approved"},
+			request_only=True,
+		),
+		OpenApiExample(
+			"Approved response (200)",
+			value={
+				"id": 5,
+				"event": 2,
+				"user": "playerX",
+				"status": "approved",
+				"created_at": "2025-10-05T12:00:00+03:00"
+			},
+			response_only=True,
+		),
+		OpenApiExample(
+			"Invalid status (400)",
+			value={"detail": "Invalid status."},
+			response_only=True,
+		),
+	],
+)
 @api_view(["PATCH"])
 @permission_classes([IsAuthenticated])
 def update_request_api(request, request_id):
@@ -132,10 +703,90 @@ def update_request_api(request, request_id):
 
 	return Response(EventRequestSerializer(join_request).data)
 
+################
+# Game Systems #
+################
+
+@extend_schema_view(
+	get=extend_schema(
+		tags=["Game Systems"],
+		operation_id="listSystems",
+		summary="List all game systems",
+		description=(
+			"Retrieve a list of all available TTRPG systems. "
+			"Each system represents a distinct tabletop role-playing game ruleset "
+			"(e.g. Dungeons & Dragons 5e, Pathfinder 2e, Cyberpunk RED)."
+		),
+		responses={
+			200: OpenApiResponse(
+				response=SystemSerializer(many=True),
+				description="List of all available systems."
+			)
+		},
+		examples=[
+			OpenApiExample(
+				name="List systems (200)",
+				value=[
+					{
+						"id": 1,
+						"name": "Dungeons & Dragons 5e",
+					},
+					{
+						"id": 2,
+						"name": "Cyberpunk RED",
+					}
+				],
+				response_only=True,
+			)
+		],
+	),
+	post=extend_schema(
+		tags=["Game Systems"],
+		operation_id="createSystem",
+		summary="Create a new game system",
+		description=(
+			"Create a new TTRPG system. "
+			"Each system must have a unique name. "
+			"This endpoint is typically used by administrators or organizers "
+			"to expand the available set of systems. You need to be authenticated to use this."
+		),
+		request=SystemSerializer,
+		responses={
+			201: OpenApiResponse(
+				response=SystemSerializer,
+				description="System successfully created."
+			),
+			400: OpenApiResponse(description="Validation error — duplicate or invalid fields."),
+			401: OpenApiResponse(
+				description="Authentication credentials were not provided or token invalid.",
+				examples=[OpenApiExample("Unauthorized", value={"detail": "token_not_valid"}, response_only=True)],
+			),
+		},
+		examples=[
+			OpenApiExample(
+				name="Create new system (request)",
+				value={
+					"name": "Avatar Legends: The Roleplaying Game",
+				},
+				request_only=True,
+			),
+			OpenApiExample(
+				name="Created system (201 response)",
+				value={
+					"id": 3,
+					"name": "Avatar Legends: The Roleplaying Game",
+				},
+				response_only=True,
+			),
+		],
+	),
+)
 @api_view(["GET", "POST"])
-# @permission_classes([IsAuthenticated])
 def system_list_create(request):
 	"""List all systems or create a new one."""
+	if request.method == "POST" and not request.user.is_authenticated:
+		return Response({"detail": "Authentication required."}, status=status.HTTP_401_UNAUTHORIZED)
+
 	if request.method == "GET":
 		systems = System.objects.all()
 		serializer = SystemSerializer(systems, many=True)
@@ -148,6 +799,121 @@ def system_list_create(request):
 			return Response(serializer.data, status=status.HTTP_201_CREATED)
 		return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+@extend_schema_view(
+	get=extend_schema(
+		tags=["Game Systems"],
+		operation_id="getSystemById",
+		summary="Retrieve a single game system",
+		description="Return a single TTRPG system by ID.",
+		parameters=[param_system_id],
+		responses={
+			200: SystemSerializer,
+			404: OpenApiResponse(description="System not found."),
+		},
+		examples=[
+			OpenApiExample(
+				"System details (200)",
+				value={
+					"id": 2,
+					"name": "Cyberpunk RED",
+					"description": "Near-future dystopian RPG with style and substance."
+				},
+				response_only=True,
+			)
+		],
+	),
+	put=extend_schema(
+		tags=["Game Systems"],
+		operation_id="replaceSystem",
+		summary="Replace a game system",
+		description="Replace all fields of an existing TTRPG system. Authentication required.",
+		parameters=[param_system_id],
+		request=SystemSerializer,
+		responses={
+			200: SystemSerializer,
+			400: OpenApiResponse(description="Validation error."),
+			401: OpenApiResponse(
+				description="Authentication credentials were not provided or token invalid.",
+				examples=[OpenApiExample("Unauthorized", value={"detail": "token_not_valid"}, response_only=True)],
+			),
+			404: OpenApiResponse(description="System not found."),
+		},
+		examples=[
+			OpenApiExample(
+				"Replace system (request)",
+				value={
+					"name": "Dungeons & Dragons 5e",
+					"description": "Revised edition of the classic fantasy TTRPG."
+				},
+				request_only=True,
+			),
+			OpenApiExample(
+				"Replace system (response)",
+				value={
+					"id": 1,
+					"name": "Dungeons & Dragons 5e",
+					"description": "Revised edition of the classic fantasy TTRPG."
+				},
+				response_only=True,
+			),
+		],
+	),
+	patch=extend_schema(
+		tags=["Game Systems"],
+		operation_id="updateSystem",
+		summary="Partially update a game system",
+		description="Update one or more fields of an existing TTRPG system. Authentication required.",
+		parameters=[param_system_id],
+		request=SystemSerializer,
+		responses={
+			200: SystemSerializer,
+			400: OpenApiResponse(description="Validation error."),
+			401: OpenApiResponse(
+				description="Authentication credentials were not provided or token invalid.",
+				examples=[OpenApiExample("Unauthorized", value={"detail": "token_not_valid"}, response_only=True)],
+			),
+			404: OpenApiResponse(description="System not found."),
+		},
+		examples=[
+			OpenApiExample(
+				"Partial update (request)",
+				value={"description": "Updated system description."},
+				request_only=True,
+			),
+			OpenApiExample(
+				"Partial update (response)",
+				value={
+					"id": 3,
+					"name": "Avatar Legends: The Roleplaying Game",
+					"description": "Updated system description."
+				},
+				response_only=True,
+			),
+		],
+	),
+	delete=extend_schema(
+		tags=["Game Systems"],
+		operation_id="deleteSystem",
+		summary="Delete a game system",
+		description="Delete a TTRPG system by ID. Authentication required.",
+		parameters=[param_system_id],
+		responses={
+			204: OpenApiResponse(description="Deleted successfully."),
+			401: OpenApiResponse(
+				description="Authentication credentials were not provided or token invalid.",
+				examples=[OpenApiExample("Unauthorized", value={"detail": "token_not_valid"}, response_only=True)],
+			),
+			404: OpenApiResponse(description="System not found."),
+		},
+		examples=[
+			OpenApiExample(
+				"Deleted successfully",
+				value={"detail": "Deleted successfully."},
+				response_only=True,
+			),
+		],
+	),
+)
 @api_view(["GET", "PUT", "PATCH", "DELETE"])
 @permission_classes([IsAuthenticated])
 def system_detail(request, system_id):
@@ -170,4 +936,4 @@ def system_detail(request, system_id):
 
 	elif request.method == "DELETE":
 		system.delete()
-		return Response(status=status.HTTP_204_NO_CONTENT)
+		return Response({"detail": "Deleted successfully."}, status=status.HTTP_204_NO_CONTENT)
