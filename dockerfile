@@ -1,11 +1,11 @@
 # Use an official lightweight Python image
 FROM python:3.12-slim
 
-# Set environment variables
+# Environment variables
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 
-# Set work directory
+# Set the working directory inside container
 WORKDIR /app
 
 # Install system dependencies
@@ -14,12 +14,15 @@ RUN apt-get update && apt-get install -y \
     libpq-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# Install Python dependencies
+# Copy dependencies and install them
 COPY requirements.txt /app/
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy project files
+# Copy all project files
 COPY . /app/
+
+# Move into backend directory to run manage.py
+WORKDIR /app/backend
 
 # Expose port for Django
 EXPOSE 8000
